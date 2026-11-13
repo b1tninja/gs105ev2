@@ -326,6 +326,40 @@ the MCP side):
 Until then, the switch-register driver, NSDP handler, and httpd handler
 cannot be reached — not a dead end, but blocked on bridge setup.
 
+## Round 5 — scripts enabled; vector table + bank-loader candidate
+
+Blocker (1) is now cleared. `GHIDRA_MCP_ALLOW_SCRIPTS` turned out to be
+discarded by Ghidra's own launcher: `support\launch.bat` starts the JVM with
+**`start /I`**, which forces the *original* environment cmd.exe was created
+with and drops anything `set` inside the batch. The variable therefore has to
+be in the environment of the process that **launches** Ghidra (persist it with
+`setx`, or export it in the launching shell), not set inside `ghidraRun.bat`.
+With it exported in the launcher's environment, `run_script_inline` /
+`run_ghidra_script` work (`System.getenv("GHIDRA_MCP_ALLOW_SCRIPTS")` → `1`),
+and `GHIDRA_MCP_FILE_ROOT` is unset (no import path restriction).
+
+First scripted findings against the first-64 KiB image:
+
+- **Interrupt vector table (anchored, reliable).** `RESET @0x0000 → LJMP
+  0x1016`; `IE0 @0x0003 → LJMP 0x1009`; `TF0 @0x000b → LJMP 0x2ec9`; `IE1
+  @0x0013 → LJMP 0x30f7`; `int10 @0x0053 → LJMP 0x0408`. The other vector
+  slots are not `LJMP` — the firmware uses reset + a few interrupts and packs
+  code/data over the unused vector space.
+- **Bank/overlay loader candidate at `CODE:0x119c`.** A tight
+  `MOVX @DPTR,A; INC DPTR; DJNZ R7,…; DJNZ R6,…` block-copy loop — the shape
+  of a routine that copies a region (a bank) into external/code memory. The
+  dispatcher stubs around `0x1190`/`0x119c` are the targets of a table of
+  `{2-byte key, LJMP 0x1190}` entries packed from ~`0x1010` onward, i.e. a
+  banked-call / overlay dispatch table rather than real inline code (which is
+  why a flat disassembly there looked like nonsense).
+
+Still open (the substantial part): recover the exact bank-select write and
+the bank window size from the loader at `0x119c`/dispatcher, then script the
+per-bank overlay import so the banked NSDP/httpd code becomes analyzable. This
+is real reverse-engineering effort, not a quick step — the loader's addressing
+(MOVX target = which register/SFR latches the bank) has to be read out
+carefully, and the 682 KB flash image's bank layout confirmed against it.
+
 ## Reproducing this
 
 ```powershell
