@@ -9,7 +9,7 @@ description = "Independent NSDP client for NETGEAR GS105Ev2-class smart switches
 readme = "README.md"
 requires-python = ">=3.12"
 license = { file = "LICENSE" }
-authors = [{ name = "gs105e-switch contributors" }]
+authors = [{ name = "gs105ev2 contributors" }]
 keywords = ["netgear", "nsdp", "switch", "gs105ev2", "vlan"]
 
 # stdlib only — no runtime dependencies on purpose (socket + struct).

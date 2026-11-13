@@ -5,7 +5,7 @@ attorney before relying on this document for your own risk assessment.
 
 ## Independent, unofficial tool
 
-`gs105e-switch` is an independent open-source research project. It is **not
+`gs105ev2` is an independent open-source research project. It is **not
 affiliated with, endorsed by, sponsored by, or approved by** NETGEAR, Inc. or
 any related entity.
 
