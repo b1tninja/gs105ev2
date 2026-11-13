@@ -90,10 +90,20 @@ vector at `CODE:0000` into a clean `LJMP 0x1016`, followed by a
 self-consistent instruction chain — the standard way an 8051 image begins.
 This resolves the chipset's **CPU core** (as distinct from the RTL8367N
 *switch* silicon already confirmed above) as **8051-family**, not MIPS.
-Ghidra's import also shows the 8051's native 64 KiB code space only
-reaches the first `0x10000` bytes of the 682,856-byte payload — consistent
-with the PNGs/gzip assets found below all sitting past that offset as a
-data region, not executed code.
+
+**Memory model — the image is BANKED, not flat (RTL8367N-VB-CG datasheet).**
+The on-die 8051 has only **16 KB code + 48 KB data RAM** and uses **code
+banking**, booting from the external SPI flash that holds this 683 KB image.
+So the 8051's 64 KiB logical code window is *not* the first 64 KiB of the
+file laid out linearly — banking swaps different flash regions into the
+window. A flat 8051 import (what the Ghidra pass did) therefore only shows
+whatever bank(s) happen to land in the first file 64 KiB, and glues together
+regions that never share one live address space. This is the real reason the
+Ghidra pass saw a "64 KiB ceiling" and could not resolve string/code
+references past the window — see [`GHIDRA-NOTES.md`](GHIDRA-NOTES.md)
+Round 3. A correct re-import needs overlay blocks per flash bank plus the
+bank-select SFR identified; the PNGs/gzip web assets past `0x10000` are
+still a data/resource region either way.
 
 ## Software stack (from embedded strings)
 
@@ -180,11 +190,12 @@ they are not committed or mirrored anywhere here.
 
 This is firmware for a small, mostly-uncompressed embedded image: a custom
 SDK (web server + "lwps" network stack) running on a confirmed
-**8051-family** CPU core, driving a Realtek RTL8367N switch, with embedded
-PNGs and 11 gzip-compressed localized web-UI assets living past the 8051's
-64 KiB code space as a data region, wrapped in a now mostly-decoded 20-byte
-vendor header (magic, payload length, two still-unidentified fields, a
-fixed sub-header marker). See [`GHIDRA-NOTES.md`](GHIDRA-NOTES.md) for the
-disassembly that confirmed the CPU core, and for what's still open
-(tracing the real application entry point, matching NSDP/httpd logic to
-code).
+**8051-family** CPU core (a code-banked RTL8367N on-die 8051, 16 KB code +
+48 KB data, booting from this SPI image), driving the Realtek RTL8367N
+switch fabric, with embedded PNGs and 11 gzip-compressed localized web-UI
+assets as a data/resource region past `0x10000`, wrapped in a now
+mostly-decoded 20-byte vendor header (magic, payload length, two
+still-unidentified fields, a fixed sub-header marker). See
+[`GHIDRA-NOTES.md`](GHIDRA-NOTES.md) for the disassembly that confirmed the
+CPU core and the banking model, and for what's still open (re-importing with
+per-bank overlays, then matching NSDP/httpd logic to code).

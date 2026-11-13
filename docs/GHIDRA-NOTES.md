@@ -136,11 +136,150 @@ being reachable. Telling these apart needs either manually walking the
 linear disassembly near each string by hand, or finding the right analyzer
 option for this Sleigh module — not done this pass.
 
+## Round 3 — xref gap resolved (tooling), and the firmware's 64 KiB split
+
+This pass set out to (1) trace the app path, (2) resolve the Round 2
+string-xref gap, (3) find the NSDP handler, (4) find the httpd/switch-driver
+code. Scripts were **disabled** on this bridge
+(`run_script_inline` → "Script execution disabled. Set
+`GHIDRA_MCP_ALLOW_SCRIPTS=1`"), so everything below is from the read-only
+query tools, not a custom analysis script.
+
+### The xref gap is a tooling/analysis limitation, not dead strings
+
+Round 2 left two explanations open (Sleigh doesn't synthesize the ref vs.
+the strings are dead debug data). Round 3 lands firmly on **tooling**:
+
+- The **"Scalar Operand References" analyzer is disabled** (confirmed via
+  `list_analyzers`: `{"name":"Scalar Operand References","enabled":false}`).
+  That is exactly the analyzer that turns an immediate operand like
+  `#0x5672` into a data reference, so with it off Ghidra records no data
+  xrefs from code regardless of what the code does.
+- More decisively, the xref database is sparse **even for code→code
+  calls**. `FUN_CODE_1009` decompiles to `main_init(0x9b3e);` — a real
+  call — yet `get_xrefs_from(0x1009)` returns *no references* and
+  `get_function_callees(main_init)` returns *none*. So `get_xrefs_to` /
+  `get_xrefs_from` / the call-graph tools are **unreliable on this program**
+  as a whole; their emptiness is not evidence of absence.
+- The TCP-state strings (`LISTEN`/`SYN-SENT`/`ESTABLISHED`/…) are a
+  textbook state-name lookup table, and the lwps TCP stack that would use it
+  is present in this same region (source-path strings
+  `..\..\common\src\lwps\tcp.c`, `...\icmp.c`). They are almost certainly
+  **live**, just not surfaced by the incomplete analysis.
+
+What I still **could not** do: name the exact instruction that loads the
+table. A byte search for a flat `MOV DPTR,#imm16` load (`90 56 72`) found
+nothing, and a search for a consecutive Keil-style code-pointer table
+(`56 72 56 82 56 92`, the string addresses back-to-back) also found nothing.
+That is consistent with the access being *computed* — **and, per the banking
+model below, the flat file offset `0x5672` is very likely not the *live
+logical address* the code ever loads** (that string sits in a banked region;
+the code that uses it addresses it through the bank window at a different
+logical address). So the disabled analyzer is real but secondary: the deeper
+reason cross-region xrefs don't exist is that the flat 64 KiB map
+concatenates banks that never share one live address space.
+
+### The firmware is a BANKED SPI image, not a flat 64 KiB (datasheet, via the hardware agent)
+
+**Key reframing from the RTL8367N-VB-CG datasheet** (relayed by the sibling
+hardware-research agent, 2026-11-13): the on-die 8051 has only **16 KB code
+memory + 48 KB data RAM**, and uses **code banking**, booting by loading from
+the external **SPI flash** (our 683 KB image). So the 64 KiB Ghidra `CODE`
+space is the 8051's *logical* address window, and banking swaps different
+flash regions into it — **the 683 KB image is not linearly the 64 KiB that
+got mapped.** This neatly explains both earlier puzzles:
+
+- The "64 KiB ceiling" is not a generic 8051 flat-code limit (as the
+  "code is capped at 64 KiB" section above framed it — treat that section's
+  *reasoning* as superseded, though its observation that assets live past
+  `0x10000` still holds). It's the logical window size of a banked SoC.
+- The unresolved string/code "references" past the code-window size are
+  expected: a flat concatenation of banks puts data at file offsets that
+  are **not** the live logical addresses any single bank's code sees, so no
+  flat xref can exist even in principle.
+
+**What this doesn't yet pin down:** the exact code-window size and split
+(16 KB code + 48 KB data *per the datasheet* implies the code window may be
+only ~16 KB, not 64 KiB — which would mean much of what the flat import
+disassembled above the window is actually a *different bank or data RAM*,
+not contiguous code), and the **bank-select mechanism** (an SFR/port/latch
+write the boot/dispatch code does before a far call or table access). I did
+not locate the bank-select write this pass — with the xref/call database
+broken (above) and scripts disabled, hunting one SFR write by hand wasn't
+tractable in budget. That is the first task for Round 4.
+
+### Strings/constants present vs. absent in the mapped window (byte-search-backed)
+
+Byte/string searches are reliable for *presence*, and they draw a clear line
+(read now through the banking lens — "mapped window" = whatever bank(s) the
+flat first-64 KiB import happens to show):
+
+- **In the mapped first 64 KiB (bank 0):** boot/common 8051 code; the
+  low-level network stack (`lwps` ICMP/TCP, the TCP state table ~`0x5672`,
+  DHCP header-dump debug ~`0xf0eb`); VLAN/IGMP code — the **only** string
+  Ghidra has *defined* in the whole mapped region is `_igmpVlan %u` at
+  `CODE:0xfdcf`; the `RTL8367N`/`RTL8367B` version strings (~`0x55e2`); and,
+  right after them (~`0x5600`), a tagged binary table (`41 58 8C`, `41 58
+  8D`, `44 58 …`, `46 55 …` = "AX"/"DX"/"FU" tags + values) that looks like
+  **switch-chip register-init data**, not code or text.
+- **Absent from the mapped 64 KiB:** the literal `NSDP` signature
+  (`4E 53 44 50`), the UDP port constants (`63321`–`63324` =
+  `F7 59`…`F7 5C`, searched both as given), and **all** of the httpd / HTML /
+  `login` / web-UI strings that the earlier full-image `fw_inspect`/binwalk
+  pass found at file offsets past `0x10000`.
+
+So the **NSDP packet parser and the web-UI/httpd handlers are not in the
+mapped bank** — they live in the region past `0x10000` that the raw 8051
+import does not map (the data/resource region, and/or additional
+bank-switched code; see `FIRMWARE-FORMAT.md`). The absent `NSDP` literal also
+hints the signature may be matched **byte-by-byte** (`CJNE` against
+`'N','S','D','P'`) rather than stored as a contiguous string. Either way,
+tasks 3 and 4 (NSDP handler, httpd handler) **cannot be done against the
+current single-bank mapping** — they need the >64 KiB region mapped as 8051
+overlay bank(s) first.
+
+### App-path trace (task 1): blocked by the same incompleteness
+
+With the call-graph/xref tools returning empty on a known-good call, walking
+the app from `main_init` isn't possible this pass. The reset chain
+(`0x0000 LJMP 0x1016` → delay `DJNZ` loops → `LJMP 0x1190`) and
+`FUN_CODE_1009 → main_init(0x9b3e)` are the only concrete links; `0x9b3e` is
+the argument main_init is handed, a reasonable next thing to examine once
+analysis is complete.
+
+### Recommended setup for a Round 4 that can actually get there
+
+Order matters — get the memory model right *first*, or every later step
+inherits the flat-mapping error:
+
+1. **Re-import with the banked memory model**, not a flat 64 KiB blob. Using
+   the datasheet's 16 KB-code / 48 KB-data split, define the common/low code
+   region and model the banked window as Ghidra **overlay blocks**, mapping
+   each flash bank from its real file offset to the shared logical window.
+   The bank size and window base come from the datasheet; the bank *count*
+   is `683 KB / bank_size`.
+2. **Find the bank-select write.** Look for an SFR/port/latch write
+   (`MOV <sfr>,#n` or `MOVX @DPTR` to a control register) that the dispatch
+   code performs just before a far call/jump or a cross-bank table access.
+   That identifies which SFR selects banks and lets each overlay be tied to
+   a bank index.
+3. Enable the **Scalar Operand References** analyzer, then `reanalyze` —
+   only meaningful *after* the banks are mapped, so operands resolve to live
+   logical addresses.
+4. If possible, run the bridge with `GHIDRA_MCP_ALLOW_SCRIPTS=1` so a script
+   can rebuild references and scan operands/`MOVX` (external-register)
+   accesses directly — `MOVX @DPTR` sites are the likely RTL8367N register
+   interface and the fast path to the switch driver.
+
+Only once 1–2 are done can the NSDP parser and httpd handler (which live in
+banks the flat import didn't show) actually be reached.
+
 ## Next steps (not done this pass)
 
 - Trace from `CODE:0x1190` onward to find the real application entry point
   and the NSDP-handling / httpd-handling routines (would corroborate
-  `docs/NSDP-PROTOCOL.md` and `docs/WEBUI-AUTH.md` against actual code).
+  `docs/NSDP-PROTOCOL.md` and `docs/WEBUI-AUTH.md` against actual code) —
+  **blocked** until Round 4's setup (overlay banks + refs) is in place.
 - Resolve why string xrefs aren't resolving (round 2, above) — check this
   8051 Sleigh module's analyzer options for a constant-reference/DPTR pass,
   or manually walk the disassembly near `CODE:55e2` and `CODE:5672` by hand
