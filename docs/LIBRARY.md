@@ -8,16 +8,29 @@ reimplemented here); legal framing is in [`../LEGAL.md`](../LEGAL.md).
 
 ## Status / what's verified
 
-- **Read paths** (`discover`, `get_info`, `get_version`, `get_port_speeds`,
-  `get_vlans_8021q`, `get_pvids`) — implemented, and the wire-format
-  encode/decode they rely on is **unit-tested** (`tests/test_nsdp.py`, 8
-  deterministic tests, no hardware needed). The live round-trip against an
-  actual switch is **not yet verified** — the device wasn't on the LAN when
-  this was written (see [`PROBE-LOG.md`](PROBE-LOG.md)).
-- **Write paths** (`set_name`, `set_dhcp`, `set_vlan_8021q`, `set_pvid`,
-  and the `reboot`/`factory_reset` actions) — implemented but **gated and
-  hardware-unverified**. They require `NsdpClient(allow_write=True,
-  password=...)` and are **not exposed on the CLI**. See
+- **Read paths** — implemented, and the wire-format encode/decode they rely
+  on is **unit-tested** (`tests/test_nsdp.py`, 16 deterministic tests, no
+  hardware needed). Available reads:
+  - identity/config: `discover`, `get_info`, `get_version`, `get_location`,
+    `get_port_count`;
+  - ports: `get_port_speeds`, `get_port_stats` (per-port byte/packet/error
+    counters);
+  - VLAN: `get_vlan_engine` (current VLAN mode), `get_vlans_8021q`,
+    `get_vlans_port_based`, `get_pvids`;
+  - other switch features: `get_qos_mode`, `get_igmp_snooping`,
+    `get_bandwidth_in`, `get_bandwidth_out`, `get_broadcast_bandwidth`,
+    `get_port_mirror`.
+
+  The live round-trip against an actual switch is **not yet verified** — the
+  device wasn't on the LAN when this was written (see
+  [`PROBE-LOG.md`](PROBE-LOG.md)). The VLAN-engine mode-byte meanings and the
+  bandwidth/QoS step encodings come from the ProSafeLinux reference and are
+  unconfirmed against this hardware.
+- **Write paths** (`set_name`, `set_dhcp`, `set_vlan_8021q`,
+  `set_vlan_port_based`, `set_pvid`, and the `reboot`/`factory_reset`
+  actions) — implemented but **gated and hardware-unverified**. They require
+  `NsdpClient(allow_write=True, password=...)` and are **not exposed on the
+  CLI**. See
   [`../SECURITY.md`](../SECURITY.md): writes are a separate, deliberate step,
   and NSDP write auth historically had serious weaknesses
   ([`WEBUI-AUTH.md`](WEBUI-AUTH.md), [`research.md`](research.md)).

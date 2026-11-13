@@ -369,3 +369,205 @@ class PortSpeed:
     def decode(cls, value: bytes) -> PortSpeed:
         port, speed = struct.unpack(">BB", value[:2])
         return cls(port=port, speed=speed)
+
+
+# --- port traffic counters (TLV 0x1000) -----------------------------------
+
+
+@dataclass(slots=True)
+class PortStat:
+    """One port traffic-counter row (TLV 0x1000): port + six uint64 counters."""
+
+    port: int
+    rx_bytes: int
+    tx_bytes: int
+    packets: int
+    broadcast: int
+    multicast: int
+    errors: int
+
+    @classmethod
+    def decode(cls, value: bytes) -> PortStat:
+        port, rx, tx, pkts, bcast, mcast, errors = struct.unpack(">B6Q", value[:49])
+        return cls(
+            port=port,
+            rx_bytes=rx,
+            tx_bytes=tx,
+            packets=pkts,
+            broadcast=bcast,
+            multicast=mcast,
+            errors=errors,
+        )
+
+
+# --- VLAN engine mode (TLV 0x2000) ----------------------------------------
+#
+# Mode-byte values are from the ProSafeLinux reference (PslTypVlanSupport) and
+# are NOT confirmed against this project's own hardware.
+
+
+class VlanEngineMode(IntEnum):
+    DISABLED = 0x00
+    PORT_BASED = 0x01
+    ID_BASED = 0x02
+    DOT1Q_BASIC = 0x03  # ProSafeLinux "802.1q port-based"
+    DOT1Q_ADVANCED = 0x04  # ProSafeLinux "802.1q extended"
+
+
+VLAN_ENGINE_LABELS: Mapping[int, str] = {
+    VlanEngineMode.DISABLED: "disabled",
+    VlanEngineMode.PORT_BASED: "port-based",
+    VlanEngineMode.ID_BASED: "id-based",
+    VlanEngineMode.DOT1Q_BASIC: "802.1Q basic",
+    VlanEngineMode.DOT1Q_ADVANCED: "802.1Q advanced",
+}
+
+
+def decode_vlan_engine(value: bytes) -> int:
+    """Decode the VLAN-engine mode byte (TLV 0x2000). Values unverified."""
+    return value[0]
+
+
+def encode_vlan_engine(mode: int) -> bytes:
+    return struct.pack(">B", int(mode))
+
+
+def vlan_engine_label(mode: int) -> str:
+    return VLAN_ENGINE_LABELS.get(mode, f"0x{mode:02x}")
+
+
+# --- QoS mode (TLV 0x3400) ------------------------------------------------
+
+
+class QosMode(IntEnum):
+    PORT_BASED = 0x01
+    DOT1P = 0x02  # 802.1p
+
+
+QOS_LABELS: Mapping[int, str] = {
+    QosMode.PORT_BASED: "port-based",
+    QosMode.DOT1P: "802.1p",
+}
+
+
+def decode_qos(value: bytes) -> int:
+    """Decode the QoS-mode byte (TLV 0x3400)."""
+    return value[0]
+
+
+def encode_qos(mode: int) -> bytes:
+    return struct.pack(">B", int(mode))
+
+
+def qos_label(mode: int) -> str:
+    return QOS_LABELS.get(mode, f"0x{mode:02x}")
+
+
+# --- per-port bandwidth limit (TLV 0x4c00 in / 0x5000 out / 0x5800 bcast) --
+
+
+class BandwidthLimit(IntEnum):
+    NONE = 0x0000
+    L512K = 0x0001
+    L1M = 0x0002
+    L2M = 0x0003
+    L4M = 0x0004
+    L8M = 0x0005
+    L16M = 0x0006
+    L32M = 0x0007
+    L64M = 0x0008
+    L128M = 0x0009
+    L256M = 0x000A
+    L512M = 0x000B
+
+
+BANDWIDTH_LABELS: Mapping[int, str] = {
+    BandwidthLimit.NONE: "none",
+    BandwidthLimit.L512K: "512K",
+    BandwidthLimit.L1M: "1M",
+    BandwidthLimit.L2M: "2M",
+    BandwidthLimit.L4M: "4M",
+    BandwidthLimit.L8M: "8M",
+    BandwidthLimit.L16M: "16M",
+    BandwidthLimit.L32M: "32M",
+    BandwidthLimit.L64M: "64M",
+    BandwidthLimit.L128M: "128M",
+    BandwidthLimit.L256M: "256M",
+    BandwidthLimit.L512M: "512M",
+}
+
+
+@dataclass(slots=True)
+class Bandwidth:
+    """One per-port bandwidth-limit row.
+
+    Value layout: port(1) + 2 reserved bytes + limit code(2, big-endian),
+    where ``limit`` is a :class:`BandwidthLimit` step, not a raw bit rate.
+    """
+
+    port: int
+    limit: int
+
+    @property
+    def label(self) -> str:
+        return BANDWIDTH_LABELS.get(self.limit, f"0x{self.limit:04x}")
+
+    @classmethod
+    def decode(cls, value: bytes) -> Bandwidth:
+        port = value[0]
+        limit = struct.unpack(">H", value[3:5])[0]
+        return cls(port=port, limit=limit)
+
+
+# --- port mirroring (TLV 0x5c00) ------------------------------------------
+
+
+@dataclass(slots=True)
+class PortMirror:
+    """Port-mirroring config (TLV 0x5c00).
+
+    Value layout: dst_port(1) + 1 reserved byte + src_ports bitmask(1).
+    ``dst_port == 0`` means mirroring is disabled (decode returns ``None``).
+    """
+
+    dst_port: int
+    src_ports: list[int]
+
+    def encode(self) -> bytes:
+        if self.dst_port == 0:
+            return struct.pack(">BBB", 0, 0, 0)
+        return struct.pack(">BBB", self.dst_port, 0, ports_to_mask(self.src_ports))
+
+    @classmethod
+    def decode(cls, value: bytes, num_ports: int = MAX_PORTS) -> PortMirror | None:
+        dst_port, _reserved, src_mask = struct.unpack(">BBB", value[:3])
+        if dst_port == 0:
+            return None
+        return cls(dst_port=dst_port, src_ports=mask_to_ports(src_mask, num_ports))
+
+
+# --- IGMP snooping (TLV 0x6800) -------------------------------------------
+
+
+def decode_igmp_snooping(value: bytes) -> int | None:
+    """Decode IGMP snooping (TLV 0x6800).
+
+    Returns ``None`` when disabled, otherwise the snooping VLAN id. Layout:
+    enabled flag(2, big-endian) + VLAN id(2, big-endian).
+    """
+    enabled, vlan_id = struct.unpack(">HH", value[:4])
+    return vlan_id if enabled else None
+
+
+def encode_igmp_snooping(vlan_id: int | None) -> bytes:
+    if vlan_id is None:
+        return struct.pack(">HH", 0, 0)
+    return struct.pack(">HH", 1, vlan_id)
+
+
+# --- generic small integer (e.g. TLV 0x6000 number of ports) --------------
+
+
+def decode_uint(value: bytes) -> int:
+    """Decode a big-endian unsigned integer of any width (1-8 bytes)."""
+    return int.from_bytes(value, "big")

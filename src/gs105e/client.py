@@ -25,9 +25,13 @@ from dataclasses import dataclass
 
 from . import nsdp
 from .nsdp import (
+    Bandwidth,
     Opcode,
     Packet,
+    PortMirror,
     PortSpeed,
+    PortStat,
+    PortVlanBased,
     Tlv,
     Vlan8021q,
     build_read_request,
@@ -207,6 +211,105 @@ class NsdpClient:
         reply = self.query([Tlv.VLAN_PVID], device_mac=device_mac, device_ip=device_ip)
         return dict(nsdp.decode_pvid(v) for v in reply.all(Tlv.VLAN_PVID))
 
+    def get_port_stats(
+        self, *, device_mac: bytes = b"\x00" * 6, device_ip: str | None = None
+    ) -> list[PortStat]:
+        reply = self.query([Tlv.PORT_STAT], device_mac=device_mac, device_ip=device_ip)
+        return [PortStat.decode(v) for v in reply.all(Tlv.PORT_STAT)]
+
+    def get_vlan_engine(
+        self, *, device_mac: bytes = b"\x00" * 6, device_ip: str | None = None
+    ) -> int | None:
+        """Return the current VLAN-engine mode byte (see nsdp.VlanEngineMode).
+
+        Use ``nsdp.vlan_engine_label(mode)`` for a human label. The mode-value
+        meanings come from ProSafeLinux and are unverified against hardware.
+        """
+        reply = self.query(
+            [Tlv.VLAN_ENGINE], device_mac=device_mac, device_ip=device_ip
+        )
+        value = reply.first(Tlv.VLAN_ENGINE)
+        return nsdp.decode_vlan_engine(value) if value else None
+
+    def get_vlans_port_based(
+        self, *, device_mac: bytes = b"\x00" * 6, device_ip: str | None = None
+    ) -> list[PortVlanBased]:
+        reply = self.query(
+            [Tlv.VLAN_PORT_BASED], device_mac=device_mac, device_ip=device_ip
+        )
+        return [
+            PortVlanBased.decode(v, self.num_ports)
+            for v in reply.all(Tlv.VLAN_PORT_BASED)
+        ]
+
+    def get_location(
+        self, *, device_mac: bytes = b"\x00" * 6, device_ip: str | None = None
+    ) -> str | None:
+        reply = self.query([Tlv.LOCATION], device_mac=device_mac, device_ip=device_ip)
+        value = reply.first(Tlv.LOCATION)
+        return nsdp.decode_string(value) if value else None
+
+    def get_port_count(
+        self, *, device_mac: bytes = b"\x00" * 6, device_ip: str | None = None
+    ) -> int | None:
+        reply = self.query(
+            [Tlv.NUMBER_OF_PORTS], device_mac=device_mac, device_ip=device_ip
+        )
+        value = reply.first(Tlv.NUMBER_OF_PORTS)
+        return nsdp.decode_uint(value) if value else None
+
+    def get_qos_mode(
+        self, *, device_mac: bytes = b"\x00" * 6, device_ip: str | None = None
+    ) -> int | None:
+        """Return the QoS-mode byte (see nsdp.QosMode / nsdp.qos_label)."""
+        reply = self.query([Tlv.QOS], device_mac=device_mac, device_ip=device_ip)
+        value = reply.first(Tlv.QOS)
+        return nsdp.decode_qos(value) if value else None
+
+    def get_igmp_snooping(
+        self, *, device_mac: bytes = b"\x00" * 6, device_ip: str | None = None
+    ) -> int | None:
+        """Return the IGMP-snooping VLAN id, or None if snooping is disabled."""
+        reply = self.query(
+            [Tlv.IGMP_SNOOPING], device_mac=device_mac, device_ip=device_ip
+        )
+        value = reply.first(Tlv.IGMP_SNOOPING)
+        return nsdp.decode_igmp_snooping(value) if value else None
+
+    def get_bandwidth_in(
+        self, *, device_mac: bytes = b"\x00" * 6, device_ip: str | None = None
+    ) -> list[Bandwidth]:
+        reply = self.query(
+            [Tlv.BANDWIDTH_IN], device_mac=device_mac, device_ip=device_ip
+        )
+        return [Bandwidth.decode(v) for v in reply.all(Tlv.BANDWIDTH_IN)]
+
+    def get_bandwidth_out(
+        self, *, device_mac: bytes = b"\x00" * 6, device_ip: str | None = None
+    ) -> list[Bandwidth]:
+        reply = self.query(
+            [Tlv.BANDWIDTH_OUT], device_mac=device_mac, device_ip=device_ip
+        )
+        return [Bandwidth.decode(v) for v in reply.all(Tlv.BANDWIDTH_OUT)]
+
+    def get_broadcast_bandwidth(
+        self, *, device_mac: bytes = b"\x00" * 6, device_ip: str | None = None
+    ) -> list[Bandwidth]:
+        reply = self.query(
+            [Tlv.BROADCAST_BANDWIDTH], device_mac=device_mac, device_ip=device_ip
+        )
+        return [Bandwidth.decode(v) for v in reply.all(Tlv.BROADCAST_BANDWIDTH)]
+
+    def get_port_mirror(
+        self, *, device_mac: bytes = b"\x00" * 6, device_ip: str | None = None
+    ) -> PortMirror | None:
+        """Return the port-mirroring config, or None if disabled."""
+        reply = self.query(
+            [Tlv.PORT_MIRROR], device_mac=device_mac, device_ip=device_ip
+        )
+        value = reply.first(Tlv.PORT_MIRROR)
+        return PortMirror.decode(value, self.num_ports) if value else None
+
     # --- writes (guarded, hardware-unverified) ---------------------------
 
     def _write(
@@ -253,6 +356,20 @@ class NsdpClient:
         """Create/replace one 802.1Q VLAN membership row. UNVERIFIED."""
         self._write(
             [(Tlv.VLAN_8021Q, vlan.encode())],
+            device_mac=device_mac,
+            device_ip=device_ip,
+        )
+
+    def set_vlan_port_based(
+        self,
+        vlan: PortVlanBased,
+        *,
+        device_mac: bytes = b"\x00" * 6,
+        device_ip: str | None = None,
+    ) -> None:
+        """Create/replace one port-based VLAN membership row. UNVERIFIED."""
+        self._write(
+            [(Tlv.VLAN_PORT_BASED, vlan.encode())],
             device_mac=device_mac,
             device_ip=device_ip,
         )

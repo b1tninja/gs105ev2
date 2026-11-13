@@ -15,13 +15,19 @@ from .client import (
     discover,
 )
 from .nsdp import (
+    Bandwidth,
+    BandwidthLimit,
     LinkSpeed,
     Opcode,
     Packet,
+    PortMirror,
     PortSpeed,
+    PortStat,
     PortVlanBased,
+    QosMode,
     Tlv,
     Vlan8021q,
+    VlanEngineMode,
 )
 
 __version__ = "0.1.0"
@@ -38,6 +44,12 @@ __all__ = [
     "Vlan8021q",
     "PortVlanBased",
     "PortSpeed",
+    "PortStat",
     "LinkSpeed",
+    "VlanEngineMode",
+    "QosMode",
+    "Bandwidth",
+    "BandwidthLimit",
+    "PortMirror",
     "__version__",
 ]

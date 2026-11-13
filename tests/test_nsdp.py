@@ -12,11 +12,18 @@ import struct
 
 from gs105e import nsdp
 from gs105e.nsdp import (
+    Bandwidth,
+    BandwidthLimit,
     Opcode,
     Packet,
+    PortMirror,
     PortSpeed,
+    PortStat,
+    PortVlanBased,
+    QosMode,
     Tlv,
     Vlan8021q,
+    VlanEngineMode,
     build_read_request,
 )
 
@@ -111,3 +118,70 @@ def test_decode_rejects_short_and_unsigned() -> None:
         pass
     else:
         raise AssertionError("expected ValueError on bad signature")
+
+
+def test_port_stat_decode() -> None:
+    raw = struct.pack(">B6Q", 3, 1000, 2000, 50, 4, 2, 1)
+    ps = PortStat.decode(raw)
+    assert (ps.port, ps.rx_bytes, ps.tx_bytes) == (3, 1000, 2000)
+    assert (ps.packets, ps.broadcast, ps.multicast, ps.errors) == (50, 4, 2, 1)
+
+
+def test_vlan_engine_decode_and_label() -> None:
+    assert nsdp.decode_vlan_engine(b"\x03") == VlanEngineMode.DOT1Q_BASIC
+    assert nsdp.vlan_engine_label(VlanEngineMode.DOT1Q_BASIC) == "802.1Q basic"
+    assert nsdp.vlan_engine_label(VlanEngineMode.DISABLED) == "disabled"
+    assert nsdp.encode_vlan_engine(VlanEngineMode.DOT1Q_ADVANCED) == b"\x04"
+    assert nsdp.vlan_engine_label(0x7F) == "0x7f"
+
+
+def test_port_based_vlan_round_trip() -> None:
+    vlan = PortVlanBased(vlan_id=5, ports=[1, 3, 5])
+    raw = vlan.encode()
+    assert raw == struct.pack(">HB", 5, 0xA8)  # ports 1,3,5 = 0x80|0x20|0x08
+    back = PortVlanBased.decode(raw, num_ports=5)
+    assert back.vlan_id == 5
+    assert back.ports == [1, 3, 5]
+
+
+def test_qos_decode_and_label() -> None:
+    assert nsdp.decode_qos(b"\x02") == QosMode.DOT1P
+    assert nsdp.qos_label(QosMode.DOT1P) == "802.1p"
+    assert nsdp.qos_label(QosMode.PORT_BASED) == "port-based"
+    assert nsdp.encode_qos(QosMode.PORT_BASED) == b"\x01"
+
+
+def test_bandwidth_decode() -> None:
+    # port(1) + 2 reserved + limit(2 BE)
+    raw = struct.pack(">BBBH", 2, 0, 0, BandwidthLimit.L8M)
+    bw = Bandwidth.decode(raw)
+    assert bw.port == 2
+    assert bw.limit == BandwidthLimit.L8M
+    assert bw.label == "8M"
+    none = Bandwidth.decode(struct.pack(">BBBH", 1, 0, 0, BandwidthLimit.NONE))
+    assert none.label == "none"
+
+
+def test_port_mirror_round_trip_and_disabled() -> None:
+    mirror = PortMirror(dst_port=5, src_ports=[1, 2])
+    raw = mirror.encode()
+    assert raw == struct.pack(">BBB", 5, 0, 0xC0)  # src ports 1,2 = 0x80|0x40
+    back = PortMirror.decode(raw, num_ports=5)
+    assert back is not None
+    assert back.dst_port == 5
+    assert back.src_ports == [1, 2]
+    # dst_port 0 => disabled => decode returns None
+    assert PortMirror.decode(struct.pack(">BBB", 0, 0, 0)) is None
+    assert PortMirror(dst_port=0, src_ports=[]).encode() == b"\x00\x00\x00"
+
+
+def test_igmp_snooping_decode_encode() -> None:
+    assert nsdp.decode_igmp_snooping(struct.pack(">HH", 0, 0)) is None
+    assert nsdp.decode_igmp_snooping(struct.pack(">HH", 1, 42)) == 42
+    assert nsdp.encode_igmp_snooping(None) == struct.pack(">HH", 0, 0)
+    assert nsdp.encode_igmp_snooping(42) == struct.pack(">HH", 1, 42)
+
+
+def test_decode_uint() -> None:
+    assert nsdp.decode_uint(b"\x05") == 5
+    assert nsdp.decode_uint(b"\x01\x00") == 256
