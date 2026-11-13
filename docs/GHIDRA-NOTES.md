@@ -79,16 +79,81 @@ identified and modeled in Ghidra (a memory-map overlay), which was not
 investigated this pass. Nothing found so far indicates this is the case;
 the data past `0x10000` looks like resources, not more code.
 
+## Round 2 — full linear disassembly + decompiler sanity check
+
+Ran `disassemble_bytes` across the entire mapped `CODE:0000`-`CODE:fffe`
+range (not just following call/jump flow), then `run_analysis` again: the
+function count went from 5 (manually seeded) to **347**. This is a coarse
+linear sweep, not a flow-accurate one — some of those 347 "functions" are
+almost certainly disassembler noise where embedded data was decoded as
+instructions — but it's a reasonable corpus to spot-check.
+
+**Decompiler sanity check:** `decompile_function` on `FUN_CODE_1009`
+(a caller of `main_init`, found via `get_function_callers(1190)`) produces
+clean, plausible pseudocode:
+
+```c
+void FUN_CODE_1009(void)
+{
+  main_init(0x9b3e);
+  return;
+}
+```
+
+A working decompiler output (not garbage) from a raw disassembly is further
+independent evidence the 8051 processor/endianness choice is correct — a
+wrong guess tends to produce decompiler output that's visibly nonsensical
+(wrong-size operands, impossible control flow), not clean single-call
+functions like this.
+
+**String cross-references did not resolve — an informative negative
+result, not a success.** Located the `RTL8367N` string directly in the
+mapped region at `CODE:55e2`/`CODE:55f1` (confirmed by byte-pattern search
+on the ASCII bytes, so the address is right), and the TCP-state and
+DHCP-dump debug strings cited in `FIRMWARE-FORMAT.md`
+(`CODE:5672` "LISTEN", `CODE:f0eb` "-- [DHCP HDR dump] --", etc.). But:
+
+- `get_xrefs_to` found **no references** to any of them.
+- A byte-pattern search for the literal-load instruction encoding
+  (`MOV DPTR,#addr` = `90 <hi> <lo>`, e.g. `90 55 E2`) found **no matches**
+  anywhere in the mapped 64 KiB.
+- A byte-pattern search for just the raw 2-byte address (in case it's
+  stored in a pointer table rather than as an instruction operand, e.g.
+  `56 72` for the "LISTEN" string) also found **no matches**.
+
+Two explanations, not distinguished this pass: (a) this particular 8051
+Sleigh module doesn't synthesize xrefs for `MOV DPTR,#imm16` operands (a
+known limitation in some third-party 8051 Ghidra modules — DPTR is used
+for both code and external-data access, and the semantics may not be
+annotated for automatic reference creation), so the *real* call sites exist
+in the disassembly but aren't being surfaced as xrefs or found by the
+literal-byte searches because the compiler used some addressing form other
+than a flat 16-bit immediate; or (b) these are debug-only strings
+(`"buffer too small"`, `"nic rec rx err"`, the printf-style DHCP dump) that
+are compiled into the image but never actually called from the live code
+path — plausible "debug build bloat" that ships in firmware without
+being reachable. Telling these apart needs either manually walking the
+linear disassembly near each string by hand, or finding the right analyzer
+option for this Sleigh module — not done this pass.
+
 ## Next steps (not done this pass)
 
 - Trace from `CODE:0x1190` onward to find the real application entry point
   and the NSDP-handling / httpd-handling routines (would corroborate
   `docs/NSDP-PROTOCOL.md` and `docs/WEBUI-AUTH.md` against actual code).
+- Resolve why string xrefs aren't resolving (round 2, above) — check this
+  8051 Sleigh module's analyzer options for a constant-reference/DPTR pass,
+  or manually walk the disassembly near `CODE:55e2` and `CODE:5672` by hand
+  to find (or rule out) their real callers.
 - Cross-reference the `RTL8367N`/`RTL8367B` string locations found earlier
-  with their callers, to find the switch-register-access driver code.
+  with their callers, to find the switch-register-access driver code —
+  blocked on the xref issue above.
 - Decide whether the firmware's `0x08`/`0x0C` header fields (still
   unidentified per `FIRMWARE-FORMAT.md`) are validated by a bootloader —
   would need the (not publicly distributed) bootloader image to check.
+- Sanity-check how much of the 347-function linear-sweep corpus is real
+  code vs. disassembler noise over embedded data (expected, since the sweep
+  was byte-linear, not flow-accurate).
 
 ## Reproducing this
 
