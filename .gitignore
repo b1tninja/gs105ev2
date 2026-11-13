@@ -1,0 +1,46 @@
+# ---------------------------------------------------------------------------
+# Local environment / build residue
+# ---------------------------------------------------------------------------
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Ad-hoc scratch (probe scripts, redirected command output)
+.tmp_*
+.*.txt
+.*.log
+*.log
+
+# ---------------------------------------------------------------------------
+# Vendor downloads — regenerate with scripts/download-firmware.ps1,
+# never versioned. Allow-listed one path at a time, same pattern as
+# the sibling mfc9330cdw/brother-firmware projects.
+# ---------------------------------------------------------------------------
+*.har
+*.pcap
+*.pcapng
+
+downloads/**
+!downloads/**/
+
+!downloads/README.md
+!downloads/firmware/README.md
+!downloads/firmware/HASHES.md
+!downloads/utilities/README.md
+!downloads/utilities/HASHES.md
+!downloads/meta/*.md
+
+# ---------------------------------------------------------------------------
+# Editor / OS
+# ---------------------------------------------------------------------------
+.vscode/
+.idea/
+Thumbs.db
+Desktop.ini
+.DS_Store

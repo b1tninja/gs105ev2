@@ -1,0 +1,15 @@
+gs105e-switch
+Copyright (c) 2026 gs105e-switch contributors
+
+This product includes software developed independently by the contributors.
+It is not a NETGEAR product and is not affiliated with NETGEAR, Inc.
+
+Protocol behavior documented here (NSDP header/TLV layout, UDP discovery
+ports) was observed against the publicly reachable NETGEAR Switch Discovery
+Protocol used by NETGEAR's own Discovery Tool and ProSAFE Plus Configuration
+Utility, and against prior public security research cited in
+docs/research.md, for the purpose of configuring, auditing, and building
+interoperable tooling for a device the author owns. See LEGAL.md.
+
+Third-party runtime dependencies retain their own licenses (see package
+metadata).
