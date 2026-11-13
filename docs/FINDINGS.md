@@ -52,7 +52,7 @@ every config *write* remain unverified against hardware.
 ## 3. Management protocol & library — [`NSDP-PROTOCOL.md`](NSDP-PROTOCOL.md), [`LIBRARY.md`](LIBRARY.md), [`WEBUI-AUTH.md`](WEBUI-AUTH.md)
 
 - **NSDP** (UDP 63321-63324) packet/TLV format documented and reimplemented as
-  the stdlib-only **`gs105e`** Python package: discovery, status, version,
+  the stdlib-only **`gs105ev2`** Python package: discovery, status, version,
   port speeds, 802.1Q + port-based VLANs, PVIDs, port stats, QoS/IGMP/
   bandwidth/mirror. Reads are safe; **writes are gated** (`allow_write=True` +
   password) and **hardware-unverified**. 16 deterministic wire-format tests.
@@ -77,7 +77,7 @@ every config *write* remain unverified against hardware.
   (work/personal) with a tagged trunk to **`rooter`** (the inline Arch bridge),
   which does the L3 routing + firewalling — the AT&T gateway can't firewall
   intra-LAN, so the switch alone can't enforce isolation.
-- Switch side is scriptable/auditable with the `gs105e` library once connected.
+- Switch side is scriptable/auditable with the `gs105ev2` library once connected.
 - **Blocked on infra answers** (coordinated with the bare-metal/rooter session):
   physical insertion point, whether rooter becomes the VLAN enforcer, the
   host→VLAN map, addressing, and the 5-port budget. See the shared coordination
@@ -90,8 +90,8 @@ every config *write* remain unverified against hardware.
 | Legal framing, provenance, hashed firmware | Done |
 | Chipset + CPU identification | Done (confirmed) |
 | Firmware container + bank layout | Done (decoded/confirmed) |
-| `gs105e` library (reads) | Done, unit-tested; live reads unverified |
-| `gs105e` library (writes) | Implemented, **gated + hardware-unverified** |
+| `gs105ev2` library (reads) | Done, unit-tested; live reads unverified |
+| `gs105ev2` library (writes) | Implemented, **gated + hardware-unverified** |
 | Security analysis | Done |
 | VLAN plan | Drafted; **waiting on infra/rooter answers** |
 | Httpd/CGI handler trace | **Open** (deep; bank-carve method ready) |

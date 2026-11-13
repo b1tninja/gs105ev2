@@ -68,7 +68,7 @@ Isolation implies separate subnets so the L3 point can route/filter:
 but that pushes all filtering onto `rooter` with ARP/proxy complexity and is
 weaker — per-VLAN subnets are cleaner. Pending the infra session's call.)
 
-## Applying it with the `gs105e` library
+## Applying it with the `gs105ev2` library
 
 Once the switch is connected and its management IP is known, the switch side
 is scriptable (and auditable) with this project's library — see
@@ -76,7 +76,7 @@ is scriptable (and auditable) with this project's library — see
 must be done deliberately with recovery on hand):
 
 ```python
-from gs105e import NsdpClient, Vlan8021q
+from gs105ev2 import NsdpClient, Vlan8021q
 
 sw = NsdpClient(allow_write=True, password="<admin>")
 ip = "<switch mgmt ip>"
@@ -95,7 +95,7 @@ for v in NsdpClient().get_vlans_8021q(device_ip=ip):
     print(v)
 ```
 
-Read-only verification (`gs105e vlans`, `gs105e pvids`, `gs105e ports`) should
+Read-only verification (`gs105ev2 vlans`, `gs105ev2 pvids`, `gs105ev2 ports`) should
 confirm the config matches this table before trusting it.
 
 ## Open dependencies (coordinated with the infra/rooter session)

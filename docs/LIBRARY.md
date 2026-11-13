@@ -1,4 +1,4 @@
-# `gs105e` Python library
+# `gs105ev2` Python library
 
 An independent, stdlib-only NSDP client for NETGEAR GS105Ev2-class smart
 switches. Protocol layout and TLV codes come from
@@ -46,18 +46,18 @@ py -3.12 -m venv .venv
 ```
 
 stdlib only — there are no runtime dependencies. The CLI entry point is
-`gs105e`; `pytest` and `ruff` are the only dev tools.
+`gs105ev2`; `pytest` and `ruff` are the only dev tools.
 
 ## CLI (read-only)
 
 ```powershell
-gs105e discover                               # broadcast, list every switch
-gs105e --broadcast 192.168.1.255 discover     # subnet-directed broadcast
-gs105e info    --ip 192.168.1.50              # full device info
-gs105e version --ip 192.168.1.50
-gs105e ports   --ip 192.168.1.50              # per-port link speed
-gs105e vlans   --ip 192.168.1.50              # 802.1Q membership
-gs105e pvids   --ip 192.168.1.50              # per-port default VLAN
+gs105ev2 discover                               # broadcast, list every switch
+gs105ev2 --broadcast 192.168.1.255 discover     # subnet-directed broadcast
+gs105ev2 info    --ip 192.168.1.50              # full device info
+gs105ev2 version --ip 192.168.1.50
+gs105ev2 ports   --ip 192.168.1.50              # per-port link speed
+gs105ev2 vlans   --ip 192.168.1.50              # 802.1Q membership
+gs105ev2 pvids   --ip 192.168.1.50              # per-port default VLAN
 ```
 
 With no running install, `python tools/nsdp_discover.py` runs discovery
@@ -66,7 +66,7 @@ directly off `src/` (zero-install wrapper).
 ## Library — reads
 
 ```python
-from gs105e import NsdpClient
+from gs105ev2 import NsdpClient
 
 client = NsdpClient(timeout=3.0)
 
@@ -90,7 +90,7 @@ it is **not tested against hardware** and can lock you out of the switch.
 Enable writes explicitly and pass the admin password:
 
 ```python
-from gs105e import NsdpClient, Vlan8021q
+from gs105ev2 import NsdpClient, Vlan8021q
 
 client = NsdpClient(allow_write=True, password="your-admin-password")
 ip = "192.168.1.50"
@@ -116,5 +116,5 @@ on hand.
 ## Port numbering
 
 Ports are 1-based. VLAN/mirror membership is an 8-bit mask, MSB = port 1
-(`ports_to_mask`/`mask_to_ports` in `gs105e.nsdp`); the GS105Ev2 uses only
+(`ports_to_mask`/`mask_to_ports` in `gs105ev2.nsdp`); the GS105Ev2 uses only
 the top 5 bits (`num_ports=5`, the client default).

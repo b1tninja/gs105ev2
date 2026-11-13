@@ -1,4 +1,4 @@
-"""Command-line entry point: ``gs105e <subcommand>``.
+"""Command-line entry point: ``gs105ev2 <subcommand>``.
 
 Read-only subcommands (``discover``, ``info``, ``version``, ``ports``,
 ``vlans``, ``pvids``) only. Writes are deliberately not exposed on the CLI —
@@ -117,7 +117,7 @@ def cmd_pvids(args: argparse.Namespace) -> int:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="gs105e",
+        prog="gs105ev2",
         description="Read-only NSDP client for NETGEAR GS105Ev2-class switches.",
     )
     parser.add_argument(

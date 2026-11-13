@@ -78,7 +78,7 @@ Port membership masks (`0x2400`, `0x2800`, mirror) are a single byte,
 **MSB = port 1** (port 1 = `0x80` … port 8 = `0x01`); the GS105Ev2 uses only
 the top 5 bits. This table was cross-checked against the `ProSafeLinux` and
 `ngadmin` projects (see [`research.md`](research.md)) and reimplemented as
-the `gs105e.nsdp` module — [`LIBRARY.md`](LIBRARY.md). None of the VLAN/write
+the `gs105ev2.nsdp` module — [`LIBRARY.md`](LIBRARY.md). None of the VLAN/write
 codes are verified against this project's own hardware yet.
 
 ## Discovery query (what this project's client sends)

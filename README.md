@@ -19,7 +19,7 @@ currently tops out around `1.6.0.25` (see
 
 | Path | Contents |
 | --- | --- |
-| [`src/gs105e/`](src/gs105e/) | The `gs105e` NSDP client library (stdlib-only) — [usage](docs/LIBRARY.md) |
+| [`src/gs105ev2/`](src/gs105ev2/) | The `gs105ev2` NSDP client library (stdlib-only) — [usage](docs/LIBRARY.md) |
 | [`tests/`](tests/) | Deterministic wire-format unit tests (no hardware) |
 | [`docs/`](docs/) | Device ID, NSDP protocol, firmware format + Ghidra notes, [hardware](docs/HARDWARE.md), [security](docs/SECURITY-ANALYSIS.md), [VLAN plan](docs/VLAN-PLAN.md), research survey |
 | [`tools/`](tools/) | Zero-install discovery probe, firmware static-analysis helpers |
@@ -36,8 +36,8 @@ py -3.12 -m venv .venv
 The library and CLI are stdlib-only (no runtime dependencies). Read-only CLI:
 
 ```powershell
-gs105e discover
-gs105e info --ip 192.168.1.50
+gs105ev2 discover
+gs105ev2 info --ip 192.168.1.50
 ```
 
 Or run discovery with no install at all:

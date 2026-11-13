@@ -10,8 +10,8 @@ from __future__ import annotations
 
 import struct
 
-from gs105e import nsdp
-from gs105e.nsdp import (
+from gs105ev2 import nsdp
+from gs105ev2.nsdp import (
     Bandwidth,
     BandwidthLimit,
     Opcode,

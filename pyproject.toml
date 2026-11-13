@@ -3,7 +3,7 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "gs105e"
+name = "gs105ev2"
 version = "0.1.0"
 description = "Independent NSDP client for NETGEAR GS105Ev2-class smart switches (discover, status, VLAN)"
 readme = "README.md"
@@ -16,7 +16,7 @@ keywords = ["netgear", "nsdp", "switch", "gs105ev2", "vlan"]
 dependencies = []
 
 [project.scripts]
-gs105e = "gs105e.cli:main"
+gs105ev2 = "gs105ev2.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
