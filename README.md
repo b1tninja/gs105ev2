@@ -6,6 +6,10 @@ management protocol (UDP 63321-63324), the web UI, official firmware, and
 prior public security research — groundwork for segmenting a home network
 with VLANs using this switch, and general curiosity about what it runs.
 
+**Start here:** [`docs/FINDINGS.md`](docs/FINDINGS.md) is the consolidated
+summary of everything established (device, firmware, security, VLAN plan),
+with pointers into the detailed docs.
+
 Model confirmation: see [`docs/GS105Ev2.md`](docs/GS105Ev2.md). "Ev2" in the
 name is the hardware/marketing revision; NETGEAR firmware for this model
 currently tops out around `1.6.0.25` (see
