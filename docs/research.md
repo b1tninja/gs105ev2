@@ -27,9 +27,12 @@ detail, follow the links — don't rely solely on this summary.
   assigned in the advisory itself.
 - **NETGEAR PSV-2018-0538 — "Pre-Authentication Buffer Overflow on Some
   Switches"**: <https://kb.netgear.com/000061230/>. Fixed in GS105Ev2
-  firmware 1.6.0.4. Tracked externally as **CVE-2019-20699** (listed with a
-  9.8 CVSS score by third-party aggregators, i.e. unauthenticated/
-  network-reachable).
+  firmware 1.6.0.4. Tracked externally as **CVE-2019-20699**. Note the CVSS
+  disagreement: third-party aggregators (and NVD) list **9.8**
+  (unauthenticated/network-reachable, full CIA impact), while NETGEAR's own
+  KB scores it **7.5** with an availability-only vector ("Medium"). Both are
+  worth knowing — the vendor downplays confidentiality/integrity impact that
+  NVD assigns.
 - **NETGEAR PSV-2018-0542 — "Missing Function Level Access Control on Some
   Switches"**: <https://kb.netgear.com/000061463/>. Fixed in 1.6.0.4.
 - **NETGEAR PSV-2018-0612 — "Sensitive Information Disclosure on Some

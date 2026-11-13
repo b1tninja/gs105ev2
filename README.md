@@ -17,7 +17,7 @@ currently tops out around `1.6.0.25` (see
 | --- | --- |
 | [`src/gs105e/`](src/gs105e/) | The `gs105e` NSDP client library (stdlib-only) — [usage](docs/LIBRARY.md) |
 | [`tests/`](tests/) | Deterministic wire-format unit tests (no hardware) |
-| [`docs/`](docs/) | Device ID, protocol notes, firmware format, Ghidra notes, research survey |
+| [`docs/`](docs/) | Device ID, NSDP protocol, firmware format + Ghidra notes, [hardware](docs/HARDWARE.md), [security](docs/SECURITY-ANALYSIS.md), [VLAN plan](docs/VLAN-PLAN.md), research survey |
 | [`tools/`](tools/) | Zero-install discovery probe, firmware static-analysis helpers |
 | [`scripts/`](scripts/) | Fetchers that rebuild `downloads/` from NETGEAR's site |
 | `downloads/` ([notes](downloads/README.md)) | **Untracked** vendor firmware/utility artifacts + our provenance notes |
