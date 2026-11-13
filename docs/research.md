@@ -108,12 +108,32 @@ consumer-class unmanaged/smart switches use Realtek switch SoCs:
   Realtek switch chip per ServeTheHome's review.
 
 **Now confirmed for the GS105Ev2 itself** via firmware strings (RTL8367N),
-not just inferred from comparable products — see above. No FCC ID was
-located for this model via search; the only regulatory document found was
-NETGEAR's EU Declaration of Conformity
-(`204-11412-06_CE_GS105Ev2_EN-EP-FR-IT-GR-SP_20May25.pdf`), which does not
-include an FCC ID or internal photos, so a physical/visual cross-check is
-still open if it matters later.
+not just inferred from comparable products — see above. Distributor
+listings (LCSC, Octopart) describe the RTL8367N as a "Single-Chip 5-Port
+10/100/1000M Switch Controller" in a QFN-88 package — the **5-port** count
+matches the GS105Ev2 exactly, a second independent corroboration beyond the
+firmware string. A public retailer spec sheet for the GS105Ev2 lists an 8K
+MAC address table and a 2MB packet buffer; these are plausible RTL8367N
+figures but were **not independently confirmed against the chip's own
+datasheet** this pass (the datasheet PDF found was a compressed,
+partially-redacted "development partners only" draft that couldn't be
+read with the tools used).
+
+**FCC ID — likely does not exist for this model, and that's expected.**
+NETGEAR's FCC grantee code is confirmed as `PY3` (many other NETGEAR
+products use it), but no FCC ID was found for GS105Ev2 on fcc.report/fccid.io
+despite a direct search. The most likely explanation: a device like this —
+no radio, a simple wired Ethernet switch — only needs **Part 15 Subpart B
+unintentional-radiator verification**, which in the U.S. can be satisfied
+by **Supplier's Declaration of Conformity (SDoC)** and does **not** require
+an FCC ID grant or a database listing at all. This is consistent with the
+only regulatory document actually found for this model being NETGEAR's
+**EU** Declaration of Conformity
+(`204-11412-06_CE_GS105Ev2_EN-EP-FR-IT-GR-SP_20May25.pdf`) — a DoC, not a
+type-approval certificate. So the "no FCC ID found" result here is read as
+a dead end that's actually informative, not an open research gap to keep
+chasing — a physical teardown is still the only way to get internal
+photos.
 
 ## What this means for realistic next steps
 
