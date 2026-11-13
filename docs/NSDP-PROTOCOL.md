@@ -55,19 +55,41 @@ Body TLV record: 2-byte type, 2-byte length, then `length` bytes of value.
 | `0x000d` | Firmware version, slot 1 |
 | `0x000e` | Firmware version, slot 2 |
 | `0x000f` | Active firmware slot after reboot |
-| `0x0c00` | Port speed/link status |
-| `0x1000` | Port traffic statistics |
-| `0x2800` | VLAN info (read) |
+| `0x0013` | Reboot (write-only action) |
+| `0x0400` | Factory reset (write-only action) |
+| `0x0c00` | Port speed/link status: `port`,`speed` (speed `0`=down, `1`=10H, `2`=10F, `3`=100H, `4`=100F, `5`=1G) |
+| `0x1000` | Port traffic statistics: `port` + 6× uint64 counters (rx, tx, pkts, bcast, mcast, errors) |
+| `0x1400` | Reset port statistics (write-only action) |
+| `0x2000` | VLAN engine / which VLAN mode is enabled |
+| `0x2400` | Port-based VLAN membership: `vlan_id`(2) + `port_mask`(1) |
+| `0x2800` | **802.1Q** VLAN membership: `vlan_id`(2) + `tagged_mask`(1) + `untagged_mask`(1) |
 | `0x2c00` | VLAN delete (write) |
+| `0x3000` | Per-port PVID (default VLAN): `port`(1) + `vlan_id`(2) |
+| `0x3400` | QoS mode |
+| `0x3800` | Port-based QoS |
+| `0x4c00` / `0x5000` | Ingress / egress bandwidth limit |
+| `0x5800` | Broadcast bandwidth limit |
+| `0x5c00` | Port mirroring |
+| `0x6000` | Number of ports |
+| `0x6800` | IGMP snooping |
 | `0x9400` | Seen in the 2016 disclosure as a marker associated with *no authentication performed* on some firmware |
 
-## Discovery query (what this project's probe sends)
+Port membership masks (`0x2400`, `0x2800`, mirror) are a single byte,
+**MSB = port 1** (port 1 = `0x80` … port 8 = `0x01`); the GS105Ev2 uses only
+the top 5 bits. This table was cross-checked against the `ProSafeLinux` and
+`ngadmin` projects (see [`research.md`](research.md)) and reimplemented as
+the `gs105e.nsdp` module — [`LIBRARY.md`](LIBRARY.md). None of the VLAN/write
+codes are verified against this project's own hardware yet.
 
-A minimal read request: header as above with device MAC all-zero, opcode
-`0x01`, body containing a single empty-value TLV of type `0x0001` (model),
-followed by the end marker. Devices on the local broadcast domain that still
-support NSDP reply with opcode `0x02` and a body containing (at least) model
-(`0x0001`), MAC (`0x0004`), and often name/IP/firmware TLVs.
+## Discovery query (what this project's client sends)
+
+A read request: header as above with device MAC all-zero, opcode `0x01`,
+body containing empty-value TLVs for model (`0x0001`), name (`0x0003`), MAC
+(`0x0004`), IP (`0x0006`), DHCP (`0x000b`) and firmware (`0x000d`), followed
+by the end marker. Devices on the local broadcast domain that still support
+NSDP reply with opcode `0x02` and a body containing the corresponding value
+TLVs. This is implemented in `NsdpClient.discover()` — see
+[`LIBRARY.md`](LIBRARY.md).
 
 ## Known weaknesses (historical, see `research.md` for the full writeup)
 

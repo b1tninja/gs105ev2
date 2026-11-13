@@ -15,8 +15,10 @@ currently tops out around `1.6.0.25` (see
 
 | Path | Contents |
 | --- | --- |
-| [`docs/`](docs/) | Device identification, protocol notes, firmware format, research survey |
-| [`tools/`](tools/) | Read-only NSDP discovery probe, firmware static-analysis helpers |
+| [`src/gs105e/`](src/gs105e/) | The `gs105e` NSDP client library (stdlib-only) — [usage](docs/LIBRARY.md) |
+| [`tests/`](tests/) | Deterministic wire-format unit tests (no hardware) |
+| [`docs/`](docs/) | Device ID, protocol notes, firmware format, Ghidra notes, research survey |
+| [`tools/`](tools/) | Zero-install discovery probe, firmware static-analysis helpers |
 | [`scripts/`](scripts/) | Fetchers that rebuild `downloads/` from NETGEAR's site |
 | `downloads/` ([notes](downloads/README.md)) | **Untracked** vendor firmware/utility artifacts + our provenance notes |
 
@@ -24,15 +26,24 @@ currently tops out around `1.6.0.25` (see
 
 ```powershell
 py -3.12 -m venv .venv
-.\.venv\Scripts\pip install -r requirements.txt
+.\.venv\Scripts\pip install -e .
 ```
 
-The discovery probe (`tools/nsdp_discover.py`) uses only the standard
-library; the venv is only needed if later tooling adds dependencies.
+The library and CLI are stdlib-only (no runtime dependencies). Read-only CLI:
+
+```powershell
+gs105e discover
+gs105e info --ip 192.168.1.50
+```
+
+Or run discovery with no install at all:
 
 ```powershell
 .\.venv\Scripts\python.exe tools\nsdp_discover.py
 ```
+
+Full library/CLI usage, including the gated VLAN-write API, is in
+[`docs/LIBRARY.md`](docs/LIBRARY.md).
 
 ## Scope
 

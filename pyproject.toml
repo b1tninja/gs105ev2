@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gs105e"
+version = "0.1.0"
+description = "Independent NSDP client for NETGEAR GS105Ev2-class smart switches (discover, status, VLAN)"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { file = "LICENSE" }
+authors = [{ name = "gs105e-switch contributors" }]
+keywords = ["netgear", "nsdp", "switch", "gs105ev2", "vlan"]
+
+# stdlib only — no runtime dependencies on purpose (socket + struct).
+dependencies = []
+
+[project.scripts]
+gs105e = "gs105e.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 88
