@@ -81,18 +81,19 @@ build-specific fields — is exactly what a fixed CPU reset/boot vector looks
 like when it contains an absolute jump/load-immediate to the (slightly
 shifting) application entry point.
 
-**Working hypothesis, not yet confirmed with a disassembler:** the high
-density of the byte `0x75` in this region (visible throughout the header
-dump above and the constant runs) matches the **Intel 8051** opcode `0x75`
-(`MOV direct,#data`) — a very common instruction in 8051 startup code that
-initializes SFRs/variables with immediate values. Combined with the
-Windows-style backslash build paths and the unfamiliar "lwps"/custom-httpd
-SDK (below), an **8051-family microcontroller core** (common in
-Realtek's own switch-management SDKs for this chip generation) is a
-plausible fit — more plausible than MIPS, which was the default assumption
-for "Realtek switch SoC" going in. This needs a real disassembler (Ghidra,
-with its 8051 processor module) pointed at the payload to confirm; it is
-not established fact yet.
+**Confirmed** — see [`GHIDRA-NOTES.md`](GHIDRA-NOTES.md). The high density
+of the byte `0x75` in this region (visible throughout the header dump above
+and the constant runs) matches the **Intel 8051** opcode `0x75` (`MOV
+direct,#data`), and pointing Ghidra's 8051 processor module at the payload
+(after stripping the 20-byte container header) disassembles the real reset
+vector at `CODE:0000` into a clean `LJMP 0x1016`, followed by a
+self-consistent instruction chain — the standard way an 8051 image begins.
+This resolves the chipset's **CPU core** (as distinct from the RTL8367N
+*switch* silicon already confirmed above) as **8051-family**, not MIPS.
+Ghidra's import also shows the 8051's native 64 KiB code space only
+reaches the first `0x10000` bytes of the 682,856-byte payload — consistent
+with the PNGs/gzip assets found below all sitting past that offset as a
+data region, not executed code.
 
 ## Software stack (from embedded strings)
 
@@ -178,11 +179,12 @@ they are not committed or mirrored anywhere here.
 ## Conclusion for this pass
 
 This is firmware for a small, mostly-uncompressed embedded image: a custom
-SDK (web server + "lwps" network stack, likely **8051-family** code per the
-boot-stub hypothesis above — not yet confirmed) plus a Realtek RTL8367N
-switch driver, embedded PNGs, and 11 gzip-compressed localized web-UI
-assets, wrapped in a now mostly-decoded 20-byte vendor header (magic,
-payload length, two still-unidentified fields, a fixed sub-header marker).
-Confirming the CPU core and extracting executable code for real
-disassembly is the natural next step, and is what `ghidra-mcp` is for —
-not attempted in this pass.
+SDK (web server + "lwps" network stack) running on a confirmed
+**8051-family** CPU core, driving a Realtek RTL8367N switch, with embedded
+PNGs and 11 gzip-compressed localized web-UI assets living past the 8051's
+64 KiB code space as a data region, wrapped in a now mostly-decoded 20-byte
+vendor header (magic, payload length, two still-unidentified fields, a
+fixed sub-header marker). See [`GHIDRA-NOTES.md`](GHIDRA-NOTES.md) for the
+disassembly that confirmed the CPU core, and for what's still open
+(tracing the real application entry point, matching NSDP/httpd logic to
+code).

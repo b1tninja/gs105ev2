@@ -137,17 +137,19 @@ photos.
 
 ## What this means for realistic next steps
 
-- Firmware unpacking is realistic and underway — see
-  [`FIRMWARE-FORMAT.md`](FIRMWARE-FORMAT.md): the RTL8367N chipset is
-  confirmed from firmware strings, the 20-byte vendor header is decoded
+- Firmware unpacking is well underway — see
+  [`FIRMWARE-FORMAT.md`](FIRMWARE-FORMAT.md): the RTL8367N **switch**
+  silicon is confirmed from firmware strings (and corroborated by its
+  5-port datasheet description), the 20-byte vendor header is decoded
   (magic + payload length, two fields still unidentified) from an 8-version
   corpus diff, 11 gzip-compressed web-UI assets were extracted with real
   binwalk (`cargo install binwalk`, since the PyPI `binwalk` package is a
-  non-functional legacy stub), and the login page's client-side password
-  scheme is documented in [`WEBUI-AUTH.md`](WEBUI-AUTH.md). Remaining work:
-  confirm the CPU core (8051 is the current working hypothesis) and
-  disassemble the executable region — a job for `ghidra-mcp`, not yet
-  attempted.
+  non-functional legacy stub), the login page's client-side password scheme
+  is documented in [`WEBUI-AUTH.md`](WEBUI-AUTH.md), and `ghidra-mcp`
+  confirmed the management **CPU core** is 8051-family by disassembling a
+  clean, self-consistent instruction chain from the real reset vector (see
+  [`GHIDRA-NOTES.md`](GHIDRA-NOTES.md)). Remaining work: trace the real
+  application entry point and match NSDP/httpd logic to actual code.
 - Live protocol probing (NSDP discovery, web UI fingerprinting) does **not**
   require the chipset to be known and is the right first physical-device
   step — see [`../tools/nsdp_discover.py`](../tools/nsdp_discover.py).

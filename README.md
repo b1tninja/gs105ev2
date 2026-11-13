@@ -15,8 +15,8 @@ currently tops out around `1.6.0.25` (see
 
 | Path | Contents |
 | --- | --- |
-| [`docs/`](docs/) | Device identification, protocol notes, research survey |
-| [`tools/`](tools/) | Read-only NSDP discovery probe |
+| [`docs/`](docs/) | Device identification, protocol notes, firmware format, research survey |
+| [`tools/`](tools/) | Read-only NSDP discovery probe, firmware static-analysis helpers |
 | [`scripts/`](scripts/) | Fetchers that rebuild `downloads/` from NETGEAR's site |
 | `downloads/` ([notes](downloads/README.md)) | **Untracked** vendor firmware/utility artifacts + our provenance notes |
 
