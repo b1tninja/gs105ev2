@@ -360,6 +360,45 @@ is real reverse-engineering effort, not a quick step — the loader's addressing
 (MOVX target = which register/SFR latches the bank) has to be read out
 carefully, and the 682 KB flash image's bank layout confirmed against it.
 
+## Round 6 — bank layout confirmed (32 KiB banks), and NSDP is gone
+
+Rather than reverse the hardware bank-select first, confirmed the bank
+**layout** empirically by carving and re-importing. Result: the image uses the
+classic 8051 scheme — **lower 32 KiB common, upper 32 KiB banked**:
+
+- common = file `0x00000`-`0x07fff` → logical `0x0000`-`0x7fff` (always mapped),
+- bank *N* = file `0x08000 + N*0x8000` (size `0x8000`) → logical `0x8000`-`0xffff`.
+
+Method (reproducible): build a synthetic 64 KiB image = `common ++ bank_N` and
+import it as `8051:BE:16:default` at base `0x0000`; logical addresses then
+resolve correctly for that bank's code and data.
+
+**Evidence it's right (bank 2 = file `0x18000`-`0x1ffff`):** the web strings
+land exactly where the model predicts — `login.cgi` at logical `0xc9bd`,
+`httpd.c` at `0xd2e0` — and, decisively, **common code references them at those
+logical addresses**: the C-startup sequence at `CODE:0x0301`
+(`MOV DPTR,#0xc8cb; LJMP 0x1100`, where `0x1100` is a `MOV A,@R1; MOVX @DPTR,A;
+INC DPTR; DJNZ R7` copy loop) copies bank-2 initialized data into RAM. 2626
+`MOV DPTR,#imm16` loads total; 52 target the bank-2 string region. The copy
+helpers at `0x1100`/`0x119c` are C-runtime init, not the HW bank-select.
+
+**NSDP is removed in 1.6.0.25.** A scan of the whole 682 KiB image finds the
+ASCII signature `"NSDP"` **0 times** — direct confirmation of NETGEAR's
+"NSDP discovery removed on firmware 1.6.0.15+" note (this project's own
+hardware-independent corroboration). The NSDP UDP port constants
+(`0xf759`-`0xf75c` = 63321-63324) still appear around file `0x57000`-`0x6a000`,
+likely residual or management-mode strings, not an active discovery responder.
+
+**Map of the flash (file offsets):** web-management **code** strings
+(`httpd`, `login.cgi`, `switch_info`) cluster at `0x1c000`-`0x1d500` (bank 2);
+web **assets** (HTML pages, PNGs, gzip'd JS/CSS) run from `~0x57000` onward.
+
+Remaining (deeper still): trace the actual httpd request dispatcher / CGI
+handler code — identify which bank holds the handler bodies and the
+common-side bank-switch call helper, then follow a request end to end. The
+bank-carve method above makes any single bank analyzable; wiring the
+cross-bank call graph together is the next large piece.
+
 ## Reproducing this
 
 ```powershell
