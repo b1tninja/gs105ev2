@@ -88,6 +88,14 @@ confined to a trusted VLAN/broadcast domain even after patching.
 
 ## Hardware / teardown
 
+**Update:** the chipset question below is now resolved directly from the
+firmware itself — see [`FIRMWARE-FORMAT.md`](FIRMWARE-FORMAT.md). Both
+mirrored firmware images contain the plaintext string `RTL8367N` (plus one
+`RTL8367B` reference), confirming a **Realtek RTL8367N** switch SoC without
+needing a physical teardown. The comparable-product survey below was the
+working hypothesis before that was found; it's kept for context since it
+turned out to be the right family.
+
 No teardown specific to the GS105Ev2 was found. For context, comparable
 consumer-class unmanaged/smart switches use Realtek switch SoCs:
 
@@ -99,20 +107,24 @@ consumer-class unmanaged/smart switches use Realtek switch SoCs:
 - TP-Link TL-SG105S-M2 (different vendor, same size class) also uses a
   Realtek switch chip per ServeTheHome's review.
 
-**Not confirmed for the GS105Ev2 itself** — treat "Realtek" as a reasonable
-working hypothesis, not a fact, until the physical unit is opened or an FCC
-ID lookup turns up internal photos with a readable part number. No FCC ID
-was located for this model via search; the only regulatory document found
-was NETGEAR's EU Declaration of Conformity
+**Now confirmed for the GS105Ev2 itself** via firmware strings (RTL8367N),
+not just inferred from comparable products — see above. No FCC ID was
+located for this model via search; the only regulatory document found was
+NETGEAR's EU Declaration of Conformity
 (`204-11412-06_CE_GS105Ev2_EN-EP-FR-IT-GR-SP_20May25.pdf`), which does not
-include an FCC ID or internal photos.
+include an FCC ID or internal photos, so a physical/visual cross-check is
+still open if it matters later.
 
 ## What this means for realistic next steps
 
-- Firmware unpacking (`binwalk` etc.) is realistic once a `.bin` is in hand
-  (it already is, see `../downloads/firmware/`) — but without a confirmed
-  chipset/bootloader, expect to spend real effort just identifying the
-  container format before any code extraction.
+- Firmware unpacking (`binwalk` etc.) is realistic — a first static-analysis
+  pass is already done (see
+  [`FIRMWARE-FORMAT.md`](FIRMWARE-FORMAT.md)) confirming the RTL8367N
+  chipset directly from firmware strings. The container header itself
+  (fixed `21 43 65 87` signature) is not yet decoded, so full code
+  extraction for disassembly is still real effort beyond this pass. The
+  PyPI `binwalk` package was a non-functional stub on this host; a working
+  binwalk build (or Ghidra) would be the next tool to reach for.
 - Live protocol probing (NSDP discovery, web UI fingerprinting) does **not**
   require the chipset to be known and is the right first physical-device
   step — see [`../tools/nsdp_discover.py`](../tools/nsdp_discover.py).
