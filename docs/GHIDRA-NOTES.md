@@ -294,6 +294,38 @@ banks the flat import didn't show) actually be reached.
   code vs. disassembler noise over embedded data (expected, since the sweep
   was byte-linear, not flow-accurate).
 
+## Round 4 — attempt, and the two concrete blockers
+
+Retried the deeper trace with the banking model in hand. Confirmed the
+blocker firsthand rather than getting past it, and it is environmental, not
+analytical:
+
+- **Only the first 64 KiB is in Ghidra.** `list_open_programs` reports
+  `memory_size` 66176 bytes for a 682,856-byte payload. The banked code
+  where the NSDP parser and httpd live (strings absent from this window per
+  round 3) is **not imported at all** — there is nothing to decompile yet.
+- **The flat 64 KiB view is unreliable past the common boot code.** The
+  reset target disassembles to `CODE:1016: DJNZ R5,0x101c` (R5 uninitialized
+  — nonsensical as a first instruction), and `FUN_CODE_1009` "calls"
+  `main_init(0x9b3e)` where `main_init` (`CODE:1190`) is a 2-byte `MOV R3,A;
+  RET` stub. These are the decompiler misreading banked/data bytes as code —
+  exactly the symptom banking predicts.
+
+What actually unblocks Round 4 (both need setup this session can't do from
+the MCP side):
+
+1. **Enable scripts on the ghidra-mcp bridge** (`GHIDRA_MCP_ALLOW_SCRIPTS`
+   is unset, so `run_script_inline`/`run_ghidra_script` are refused). With
+   scripts, the bank-select SFR can be found programmatically and per-bank
+   overlays scripted.
+2. **Re-import the full 682 KB image with per-bank overlay blocks** at the
+   banked window, instead of the first-64 KiB flat load. This needs the bank
+   window size + the bank-select mechanism, which lives in the common boot
+   code and is the first thing to recover once (1) is available.
+
+Until then, the switch-register driver, NSDP handler, and httpd handler
+cannot be reached — not a dead end, but blocked on bridge setup.
+
 ## Reproducing this
 
 ```powershell
