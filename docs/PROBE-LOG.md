@@ -2,16 +2,16 @@
 
 ## 2026-11-13
 
-Host: `192.168.1.70/24` (gateway `192.168.1.254`; `192.168.1.1` is a separate
+Host: `192.0.2.70/24` (gateway `192.0.2.254`; `192.0.2.1` is a separate
 lab bridge, not the gateway — see this host's own network notes).
 
 ```
 python tools\nsdp_discover.py --timeout 4
-python tools\nsdp_discover.py --timeout 4 --broadcast 192.168.1.255
+python tools\nsdp_discover.py --timeout 4 --broadcast 192.0.2.255
 ```
 
 Both runs: **no NSDP replies.** ARP table at the time showed
-`192.168.1.1, .66, .67, .71 (known mfc9330cdw printer), .254` — no device
+`192.0.2.1, .66, .67, .71 (known printer), .254` — no device
 with a NETGEAR-pattern MAC and nothing new. Conclusion: **the GS105Ev2 is not
 currently connected to this LAN segment** (or its power/uplink isn't plugged
 in). This is the expected result, not a probe bug — rerun once the switch is

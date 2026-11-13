@@ -74,12 +74,12 @@ every config *write* remain unverified against hardware.
 ## 5. VLAN isolation plan — [`VLAN-PLAN.md`](VLAN-PLAN.md)
 
 - Goal: isolate a work computer from personal devices. Design: two VLANs
-  (work/personal) with a tagged trunk to **`rooter`** (the inline Arch bridge),
-  which does the L3 routing + firewalling — the AT&T gateway can't firewall
+  (work/personal) with a tagged trunk to **`router`** (the inline Arch bridge),
+  which does the L3 routing + firewalling — the ISP gateway can't firewall
   intra-LAN, so the switch alone can't enforce isolation.
 - Switch side is scriptable/auditable with the `gs105ev2` library once connected.
-- **Blocked on infra answers** (coordinated with the bare-metal/rooter session):
-  physical insertion point, whether rooter becomes the VLAN enforcer, the
+- **Blocked on infra answers** (coordinated with the infra session):
+  physical insertion point, whether router becomes the VLAN enforcer, the
   host→VLAN map, addressing, and the 5-port budget. See the shared coordination
   note.
 
@@ -93,6 +93,6 @@ every config *write* remain unverified against hardware.
 | `gs105ev2` library (reads) | Done, unit-tested; live reads unverified |
 | `gs105ev2` library (writes) | Implemented, **gated + hardware-unverified** |
 | Security analysis | Done |
-| VLAN plan | Drafted; **waiting on infra/rooter answers** |
+| VLAN plan | Drafted; **waiting on infra answers** |
 | Httpd/CGI handler trace | **Open** (deep; bank-carve method ready) |
 | Physical teardown / flash dump | **Not started** (device not in hand) |

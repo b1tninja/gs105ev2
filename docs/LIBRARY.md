@@ -52,12 +52,12 @@ stdlib only — there are no runtime dependencies. The CLI entry point is
 
 ```powershell
 gs105ev2 discover                               # broadcast, list every switch
-gs105ev2 --broadcast 192.168.1.255 discover     # subnet-directed broadcast
-gs105ev2 info    --ip 192.168.1.50              # full device info
-gs105ev2 version --ip 192.168.1.50
-gs105ev2 ports   --ip 192.168.1.50              # per-port link speed
-gs105ev2 vlans   --ip 192.168.1.50              # 802.1Q membership
-gs105ev2 pvids   --ip 192.168.1.50              # per-port default VLAN
+gs105ev2 --broadcast 192.0.2.255 discover     # subnet-directed broadcast
+gs105ev2 info    --ip 192.0.2.50              # full device info
+gs105ev2 version --ip 192.0.2.50
+gs105ev2 ports   --ip 192.0.2.50              # per-port link speed
+gs105ev2 vlans   --ip 192.0.2.50              # 802.1Q membership
+gs105ev2 pvids   --ip 192.0.2.50              # per-port default VLAN
 ```
 
 With no running install, `python tools/nsdp_discover.py` runs discovery
@@ -73,13 +73,13 @@ client = NsdpClient(timeout=3.0)
 for sw in client.discover():
     print(sw.model, sw.mac, sw.ip, sw.firmware)
 
-info = client.get_info(device_ip="192.168.1.50")
+info = client.get_info(device_ip="192.0.2.50")
 print(info.name, info.dhcp)
 
-for ps in client.get_port_speeds(device_ip="192.168.1.50"):
+for ps in client.get_port_speeds(device_ip="192.0.2.50"):
     print(ps.port, ps.label)          # e.g. "1 1G/full"
 
-for v in client.get_vlans_8021q(device_ip="192.168.1.50"):
+for v in client.get_vlans_8021q(device_ip="192.0.2.50"):
     print(v.vlan_id, v.tagged_ports, v.untagged_ports)
 ```
 
@@ -93,7 +93,7 @@ Enable writes explicitly and pass the admin password:
 from gs105ev2 import NsdpClient, Vlan8021q
 
 client = NsdpClient(allow_write=True, password="your-admin-password")
-ip = "192.168.1.50"
+ip = "192.0.2.50"
 
 # Put ports 1-2 on VLAN 10 untagged, port 5 tagged (uplink/trunk):
 client.set_vlan_8021q(

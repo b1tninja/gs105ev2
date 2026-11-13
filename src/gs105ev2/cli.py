@@ -38,7 +38,7 @@ def _no_reply_hint() -> None:
         "No switch answered. Either none is on this subnet, the switch is on "
         "firmware 1.6.0.15+ (NSDP discovery removed on-device - see "
         "docs/NSDP-PROTOCOL.md), or the broadcast doesn't reach its L2 "
-        "segment. Try --broadcast <subnet-broadcast>, e.g. 192.168.1.255.",
+        "segment. Try --broadcast <subnet-broadcast>, e.g. 192.0.2.255.",
         file=sys.stderr,
     )
 

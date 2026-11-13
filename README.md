@@ -37,7 +37,7 @@ The library and CLI are stdlib-only (no runtime dependencies). Read-only CLI:
 
 ```powershell
 gs105ev2 discover
-gs105ev2 info --ip 192.168.1.50
+gs105ev2 info --ip 192.0.2.50
 ```
 
 Or run discovery with no install at all:

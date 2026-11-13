@@ -58,14 +58,14 @@ def test_decode_parses_tlv_values_and_stops_at_end() -> None:
         struct.pack(">HH", Tlv.MODEL, 8)
         + b"GS105Ev2"
         + struct.pack(">HH", Tlv.MAC, 6)
-        + bytes.fromhex("3c2af435905f")
+        + bytes.fromhex("001122334455")
     )
     header = Packet(opcode=Opcode.READ_RESPONSE).encode()[:32]
     raw = header + body + nsdp.END_MARKER + b"garbage-after-end"
     pkt = Packet.decode(raw)
     assert pkt.opcode == Opcode.READ_RESPONSE
     assert nsdp.decode_string(pkt.first(Tlv.MODEL)) == "GS105Ev2"
-    assert nsdp.decode_mac(pkt.first(Tlv.MAC)) == "3c:2a:f4:35:90:5f"
+    assert nsdp.decode_mac(pkt.first(Tlv.MAC)) == "00:11:22:33:44:55"
 
 
 def test_port_bitmask_msb_first() -> None:
