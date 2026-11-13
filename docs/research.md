@@ -117,14 +117,17 @@ still open if it matters later.
 
 ## What this means for realistic next steps
 
-- Firmware unpacking (`binwalk` etc.) is realistic — a first static-analysis
-  pass is already done (see
-  [`FIRMWARE-FORMAT.md`](FIRMWARE-FORMAT.md)) confirming the RTL8367N
-  chipset directly from firmware strings. The container header itself
-  (fixed `21 43 65 87` signature) is not yet decoded, so full code
-  extraction for disassembly is still real effort beyond this pass. The
-  PyPI `binwalk` package was a non-functional stub on this host; a working
-  binwalk build (or Ghidra) would be the next tool to reach for.
+- Firmware unpacking is realistic and underway — see
+  [`FIRMWARE-FORMAT.md`](FIRMWARE-FORMAT.md): the RTL8367N chipset is
+  confirmed from firmware strings, the 20-byte vendor header is decoded
+  (magic + payload length, two fields still unidentified) from an 8-version
+  corpus diff, 11 gzip-compressed web-UI assets were extracted with real
+  binwalk (`cargo install binwalk`, since the PyPI `binwalk` package is a
+  non-functional legacy stub), and the login page's client-side password
+  scheme is documented in [`WEBUI-AUTH.md`](WEBUI-AUTH.md). Remaining work:
+  confirm the CPU core (8051 is the current working hypothesis) and
+  disassemble the executable region — a job for `ghidra-mcp`, not yet
+  attempted.
 - Live protocol probing (NSDP discovery, web UI fingerprinting) does **not**
   require the chipset to be known and is the right first physical-device
   step — see [`../tools/nsdp_discover.py`](../tools/nsdp_discover.py).
