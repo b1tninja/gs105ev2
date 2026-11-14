@@ -399,6 +399,132 @@ common-side bank-switch call helper, then follow a request end to end. The
 bank-carve method above makes any single bank analyzable; wiring the
 cross-bank call graph together is the next large piece.
 
+## Round 7 — the CGI/page table found, and a real common↔bank-2 link (not yet a full trace)
+
+Picked back up from Round 6 using a fresh Ghidra instance (the project the
+earlier rounds used was not open; this round launched Ghidra itself with
+`GHIDRA_MCP_ALLOW_SCRIPTS=1` set in the launching shell, per Round 5's
+finding, then re-ran the common+bank-2 synthetic-image method confirmed in
+Round 6). Also enabled the **Scalar Operand References** analyzer (left off
+by default, per Round 3) before this pass's analysis, so this round's
+negative xref results are not just "analyzer was off" again.
+
+### The web UI's CGI/page table (confirmed, high-value finding)
+
+Walking the bytes just past the bank-2 `httpd.c`/`login.cgi` region
+(`CODE:c9ba` onward in the common+bank-2 image, i.e. flash file offset
+`0x19ba` within bank 2) turned up a long run of NUL-terminated ASCII
+strings — the web UI's **complete page/CGI-handler table**, read directly
+from firmware rather than inferred from the web UI itself:
+
+```
+/login.cgi  /index.cgi  /loginhidden.cgi  /redirect.cgi  /redirectIndex.cgi
+/redirectHidden.cgi  /logout.cgi  /logouthidden.cgi  /info.cgi  page
+cable_diag  /help.cgi  /switch_info.cgi  /status.cgi  /green_ethernet.cgi
+/loader_upg.cgi  /backup_conf.cgi  /restore_conf.cgi  /ip_source.cgi
+/device_reboot.cgi  /factory_default.cgi  /switch_discovery.cgi  /fwug.cgi
+/loop_detection.cgi  /ip.cgi  /rateLimit.cgi  /portStatistics.cgi
+/cableTester.cgi  /broadCastFilter.cgi  /portPVID.cgi  /user.cgi
+/portBasedBasic.cgi  /portBasedAdvanced.cgi  /8021qBasic.cgi  ...
+```
+
+(the table continues past where this pass stopped reading — this is a
+representative prefix, not a confirmed-complete list). This directly
+corroborates and extends `SECURITY-ANALYSIS.md`'s and `VLAN-PLAN.md`'s
+treatment of the management plane: `factory_default.cgi`, `device_reboot.cgi`,
+`loader_upg.cgi`/`fwug.cgi` (firmware upgrade), and `backup_conf.cgi`/
+`restore_conf.cgi` are real, named, reachable endpoints, not just plausible
+guesses — anyone auditing the web UI's attack surface now has the actual
+endpoint names straight from the firmware instead of having to probe for
+them. `switch_discovery.cgi` is notable: it's a **web-based** discovery
+endpoint distinct from the NSDP UDP discovery protocol that's confirmed
+absent from this firmware (see Round 6) — the switch may still be
+discoverable through the web UI even on firmware where NSDP is gone.
+
+`get_xrefs_to` on the table's start address still returns nothing (same
+tooling gap as Round 3, not reinvestigated further this round), so which
+exact bank-2 routine walks this table to dispatch a request is **still not
+traced** — this is a data finding, not a call-graph one.
+
+### A real common-region ↔ bank-2 link (narrower than "the" bank switch)
+
+Chasing a *different* lead — three byte-pattern hits for `MOV DPTR,#0xc9xx`
+/ `#0xcaxx` instructions, found by searching rather than relying on
+(still-broken) xrefs — turned up something concrete: **COMMON-region code
+(address `< 0x8000`, always mapped, not bank-2-specific) contains literal
+`MOV DPTR,#imm16` loads whose immediate values fall inside the bank-2
+logical window (`0x8000`-`0xffff`)**:
+
+| Common address | Instruction | Target (bank-2 window) |
+| --- | --- | --- |
+| `CODE:0307` | `MOV DPTR,#0xcaae` | mid-string in the CGI table (`estore_conf.cgi`) |
+| `CODE:0637` | `MOV DPTR,#0xc950` | start of a small bank-2 routine (below) |
+| `CODE:0f67` | `MOV DPTR,#0xcab3` | mid-string in the CGI table (`e_conf.cgi`) |
+
+This is evidence that *some* common code is written assuming a specific
+bank (almost certainly bank 2, the web/TCP bank) is already mapped when it
+runs — i.e., common isn't entirely bank-agnostic. It is **not** itself the
+bank-select write Round 4–6 went looking for: it only shows common code
+*using* a banked address, not *switching* to make that address valid. The
+two string targets landing mid-word (not at a string start) are consistent
+with disassembler noise (a data byte sequence that happens to decode as
+`90 ca ae`/`90 ca b3`) rather than real operands — **not resolved either
+way this round**; the `0xc950` hit is the trustworthy one of the three,
+because it lands exactly on a function start (below), not mid-string.
+
+### A small bank-2 routine family, and a resolved false lead (TCP state names, not CGI dispatch)
+
+The routine at `CODE:c980`/`CODE:c99a` (bank 2) and a near-identical one at
+`CODE:c950` all share the same shape: take an index in a register pair,
+`MUL AB` it against a stride of `0x46` (70), add the product into `DPH`
+(a page-granular add, not a full 16-bit address compute), and call one of a
+small set of common-region helpers (`0x25dd`, `0x25d1`, `0x266c`, `0x2678` —
+all `< 0x8000`). This *looked* at first like it could be the httpd
+page/CGI dispatcher indexing into a per-page struct array, since it sits
+only ~0x30 bytes before the CGI table above — **but checking the base
+address these routines pass (`0x567d`/`0x568a`, in common) shows it's
+reading the **TCP connection-state name table**:
+
+```
+SYN-SENT  SYN-RECEIVED  ESTABLISHED  FIN-WAIT-1  FIN-WAIT-2
+CLOSE-WAIT  CLOSING  LAST-ACK  TIME-WAIT  CLOS[ED]
+```
+
+This is the same table Round 3 found one entry of (`LISTEN` at `~0x5672`)
+and tentatively called either dead debug data or a live-but-unresolved
+xref; Round 7 resolves it the second way and extends it to the full state
+list. The strings sit in **common**, not bank 2, but the formatting
+routine that reads them is **bank-2 code** — so this is a live, reachable
+code path in bank 2 (most plausibly behind a diagnostics page like
+`status.cgi` or `switch_info.cgi`, both in the table above), not "debug
+build bloat" as Round 2/3 speculated. It also means the earlier
+MUL-AB-with-stride-0x46 pattern is the TCP-state-table accessor, **not**
+the CGI dispatcher — a concrete negative result that narrows, rather than
+finds, the real dispatcher.
+
+**Net effect on the open question:** the httpd CGI dispatcher itself is
+still untraced (same blocker as Round 6 — the exact routine that walks the
+page table above to route a request is not identified), but this round
+replaces one piece of speculation (the TCP-state strings' liveness) with a
+confirmed fact, and adds a genuinely new, high-value artifact (the CGI/page
+table) that didn't require resolving the dispatcher at all. Byte-pattern
+search for literal `MOV DPTR,#imm16` hits (rather than relying on
+`get_xrefs_to`/`get_xrefs_from`, still unreliable on this program per Round
+3) is the technique that worked this round and is worth reusing for any
+further pass.
+
+### Setup note for next time
+
+This round started from a cold Ghidra instance (no project was open), not
+the live session Rounds 1–6 used. Reproducing the environment:
+`GHIDRA_MCP_ALLOW_SCRIPTS=1` must be set as a **user environment variable**
+(`setx`, confirmed already persisted) *and* exported into the specific
+shell that launches `ghidraRun.bat` (a brand-new shell doesn't pick up a
+`setx`'d value retroactively — `$env:GHIDRA_MCP_ALLOW_SCRIPTS='1'` before
+`Start-Process ghidraRun.bat` in the same PowerShell invocation is what
+worked). Once running, `connect_instance(project=<any name>)` connects over
+the TCP fallback even without knowing the real project name.
+
 ## Reproducing this
 
 ```powershell

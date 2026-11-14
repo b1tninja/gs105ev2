@@ -44,10 +44,19 @@ every config *write* remain unverified against hardware.
 - **Software stack:** a custom Realtek SDK — an in-house httpd
   (`common/src/app/web/httpd.c`) and a TCP/IP stack called "lwps", plus
   embedded PNGs and 11 gzip'd web-UI assets past flash `~0x57000`.
-- **Open (deliberately stopped here):** tracing the httpd request dispatcher /
-  CGI handlers across banks — the bank-carve method makes it possible, but
-  wiring the cross-bank call graph is a large further effort with little
-  practical payoff (the device isn't present and the management goals are met).
+- **The full web UI CGI/page table recovered from bank 2** (34+ endpoints,
+  including `factory_default.cgi`, `device_reboot.cgi`, `loader_upg.cgi`/
+  `fwug.cgi`, `backup_conf.cgi`/`restore_conf.cgi`, `switch_discovery.cgi`) —
+  a direct, firmware-sourced attack-surface inventory for the web management
+  interface, not inferred by probing. See "Round 7" in
+  [`GHIDRA-NOTES.md`](GHIDRA-NOTES.md).
+- **Open (deliberately stopped here):** tracing the httpd request dispatcher
+  that walks the CGI table above to route a request — the bank-carve method
+  makes it possible, and Round 7 narrowed the search (ruled out one
+  candidate routine, which turned out to be a TCP-state-name formatter, not
+  the dispatcher), but wiring the cross-bank call graph is a large further
+  effort with little practical payoff (the device isn't present and the
+  management goals are met).
 
 ## 3. Management protocol & library — [`NSDP-PROTOCOL.md`](NSDP-PROTOCOL.md), [`LIBRARY.md`](LIBRARY.md), [`WEBUI-AUTH.md`](WEBUI-AUTH.md)
 
@@ -94,5 +103,5 @@ every config *write* remain unverified against hardware.
 | `gs105ev2` library (writes) | Implemented, **gated + hardware-unverified** |
 | Security analysis | Done |
 | VLAN plan | Drafted; **waiting on infra answers** |
-| Httpd/CGI handler trace | **Open** (deep; bank-carve method ready) |
+| Httpd/CGI handler trace | **Open**; CGI/page table recovered (Round 7), dispatcher itself still untraced |
 | Physical teardown / flash dump | **Not started** (device not in hand) |
