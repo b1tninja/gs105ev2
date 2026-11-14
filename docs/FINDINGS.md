@@ -103,5 +103,5 @@ every config *write* remain unverified against hardware.
 | `gs105ev2` library (writes) | Implemented, **gated + hardware-unverified** |
 | Security analysis | Done |
 | VLAN plan | Drafted; **waiting on infra answers** |
-| Httpd/CGI handler trace | **Open**; CGI/page table recovered (Round 7), dispatcher itself still untraced |
+| Httpd/CGI handler trace | **Open**; CGI/page table recovered (Round 7); bank-select write still not found, 3 candidates ruled out (Round 8) |
 | Physical teardown / flash dump | **Not started** (device not in hand) |

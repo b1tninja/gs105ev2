@@ -525,6 +525,87 @@ shell that launches `ghidraRun.bat` (a brand-new shell doesn't pick up a
 worked). Once running, `connect_instance(project=<any name>)` connects over
 the TCP fallback even without knowing the real project name.
 
+## Round 8 — hunting the bank-select write: three leads ruled out, still not found
+
+Picked up directly from Round 7's open question (same Ghidra instance,
+same `common_bank2.bin` program). Goal: find the actual SFR/port write
+that selects which 32 KiB bank is mapped at logical `0x8000`-`0xffff`.
+Net result is **negative but load-bearing** — three plausible candidates
+were checked and ruled out, narrowing where it can't be, not where it is.
+
+### Lead 1: the `0x1000`-`0x1150` "trampoline table" — resolved as a C-runtime initializer, not bank-select
+
+Decoding this table properly (it's `{3-byte MOV DPTR,#imm16} + {3-byte LJMP
+to a shared handler}` repeated, 6 bytes/entry) explains Round 2's
+`FUN_CODE_1009` → `main_init(0x9b3e)` finding: calling an entry's
+*middle* address (skipping its own leading `LJMP`) executes `MOV
+DPTR,#0x9b3e`, which falls straight through into the **next** entry's
+`LJMP 0x1190` — so "`main_init(0x9b3e)`" is really "preload DPTR, then
+jump to the shared handler." Disassembling the handlers themselves
+(`0x1148`-`0x1191` and `0x119c`-`0x11b0`) shows classic 8051
+code-to-RAM copy loops (`MOVC A,@A+DPTR` / `INC DPTR` / `MOVX @DPTR,A` or
+`MOV @R0,A`, counted down by `DJNZ R7`/`DJNZ R6`). **Conclusion: this is
+the compiler's `idata`/`xdata` initializer-copy mechanism** (one trampoline
+entry per initialized global, each supplying that global's source address
+via the DPTR preload), not a bank selector — consistent with, and now
+fully explaining, the similar copy helper already found at `0x1100`/
+`0x0301` in Round 6. Dead end for bank-select, but a real structural
+finding in its own right.
+
+### Lead 2: `LJMP 0x80xx` from common code — false positive, lands in a zero desert
+
+A byte-pattern search for `02 80` (`LJMP 0x80xx`, i.e. common code jumping
+to the very start of whatever bank is mapped — a plausible "canonical
+bank-entry stub" shape) found nine hits in common code
+(`0x1895, 0x194a, 0x19e3, 0x1c01, 0x1dd3, 0x675b, 0x6f09, 0x724b, 0x7f6f`),
+each targeting a different low offset in `0x80xx`
+(`0x80f2, 0x80e2, 0x80d7, 0x8057, 0x803e, 0x8038, 0x8026, 0x8041, 0x8077`).
+This looked promising enough to disassemble the destination — but
+`CODE:0x8002`-`0x8490`+ in the common+bank-2 image is **solid `0x00`
+padding**, not code. All nine targets land in that dead zone. These
+`02 80 xx` byte sequences are disassembler noise (data bytes that happen
+to decode as `LJMP`), the same failure mode flagged since Round 2 — **not
+a real control-flow link to bank 2's entry point.**
+
+### Lead 3: calls into the Round 7 TCP-state-formatter — none found; reachability now unconfirmed
+
+Searched for any literal `LCALL`/`LJMP` (`12 c9xx` / `02 c9xx`) anywhere
+in the program targeting `FUN_c980`/`FUN_c99a`/`FUN_c950` (the bank-2
+routines Round 7 identified as reading the TCP connection-state-name
+table). **Zero hits.** Either they're reached only through a computed
+jump (true 8051 has no indirect *call*, only `JMP @A+DPTR` for computed
+*jumps*, so a computed call would need a return-address-on-stack trick —
+not ruled out, not found either), or these functions — created manually
+in Round 7 from a plausible-looking `RET` boundary, with no independent
+confirmation of a caller — may not be live code at all. **This revises
+Round 7's framing**: the TCP-state-name *table* (the data) is solid,
+read directly from firmware; the *code* that was guessed to read it is
+unconfirmed and should be treated as a hypothesis, not a finding.
+
+### Where this leaves the search
+
+No SFR write has been identified as the bank selector. What's now fairly
+well excluded: it isn't hiding in the data-initializer trampoline table,
+and it isn't reachable via any literal far call/jump with a bank-2 target
+anywhere in this image (common or bank 2 itself) — which, taken at face
+value, would mean bank switches in this firmware are **never done via a
+literal, disassemblable instruction sequence that a flat byte search can
+see**. The two explanations that fit: (a) the dispatch happens through a
+genuinely computed address (a table of bank IDs run through `JMP
+@A+DPTR`, or a return-address-stack trick for a computed call) that
+byte-pattern search can't find by construction, since there's no fixed
+literal to search for; or (b) this single-bank (common+bank-2) image is
+structurally the wrong lens for finding it — the real dispatch loop that
+decides "load bank N, then run" may live in a part of common that *calls
+out* to a per-bank entry convention this round hasn't located, or may not
+be code at all but a hardware-latched sequencing (e.g. address-range
+triggered, needing no explicit SFR write). Distinguishing these needs
+either locating a `JMP @A+DPTR` computed-jump site and manually walking
+where its table lives, or the datasheet's bank-control register address
+(relayed once already, via a sibling hardware-research agent, for the
+code-memory-size split — the same channel could resolve this directly
+instead of continuing to search for it blind).
+
 ## Reproducing this
 
 ```powershell
