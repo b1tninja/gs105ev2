@@ -7,6 +7,32 @@ this repo yet** — it was done interactively against a live Ghidra session
 the user already had open; see "Reproducing this" below for the exact
 steps if picked back up later.
 
+## Progress at a glance
+
+```mermaid
+flowchart TD
+    classDef done fill:#d4edda,stroke:#28a745,color:#155724;
+    classDef open fill:#fff3cd,stroke:#d39e00,color:#664d03;
+    classDef deadend fill:#f8d7da,stroke:#dc3545,color:#721c24;
+
+    R1["Round 1<br/>8051 core confirmed<br/>reset vector LJMP 0x1016"]:::done
+    R2["Round 2<br/>full linear disasm<br/>347 functions seeded"]:::done
+    R3["Round 3<br/>xref gap explained:<br/>64 KiB code ceiling"]:::done
+    R4["Round 4<br/>re-import attempt:<br/>2 concrete blockers found"]:::open
+    R5["Round 5<br/>scripts enabled,<br/>vector table + bank-loader candidate"]:::done
+    R6["Round 6<br/>32 KiB bank layout confirmed,<br/>NSDP absence confirmed"]:::done
+    R7["Round 7<br/>CGI/page table recovered<br/>34+ endpoints"]:::done
+    R8["Round 8<br/>3 bank-select candidates<br/>ruled out, still not found"]:::deadend
+    R9["Round 9<br/>datasheet register address:<br/>not publicly documented"]:::deadend
+
+    R1 --> R2 --> R3 --> R4 --> R5 --> R6 --> R7 --> R8 --> R9
+```
+
+Green = confirmed finding. Yellow = blocked, resumed later. Red = a lead
+investigated and ruled out (useful, but not the answer). The still-open
+thread running through Rounds 4, 8 and 9 is the **bank-select write**: see
+those sections, and [`FINDINGS.md`](FINDINGS.md) for the one-line status.
+
 ## Setup
 
 1. Took `GS105Ev2_V1.6.0.25.bin` (see `../downloads/firmware/`), stripped the
@@ -445,6 +471,19 @@ discoverable through the web UI even on firmware where NSDP is gone.
 tooling gap as Round 3, not reinvestigated further this round), so which
 exact bank-2 routine walks this table to dispatch a request is **still not
 traced** — this is a data finding, not a call-graph one.
+
+```mermaid
+flowchart LR
+    REQ["Incoming HTTP request<br/>e.g. GET /device_reboot.cgi"] -.->|"untraced"| DISP["httpd request dispatcher<br/>(location unknown)"]
+    DISP -.->|"untraced"| SELECT["bank-select write<br/>(Rounds 4, 8, 9 -- not found)"]
+    SELECT -.->|"would map bank N in"| WINDOW["0x8000-0xFFFF window"]
+    DISP --> TABLE["CGI/page table<br/>CODE:c9ba, bank 2<br/>34+ endpoints -- CONFIRMED, Round 7"]
+    TABLE --> HANDLER["per-endpoint handler code<br/>(which bank, not located)"]
+```
+
+Solid arrows are confirmed by reading firmware bytes; dashed arrows are the
+plausible shape of the mechanism, not yet observed. The table is real and
+complete-looking; everything that would *use* it end to end is still open.
 
 ### A real common-region ↔ bank-2 link (narrower than "the" bank switch)
 

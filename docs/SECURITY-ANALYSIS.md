@@ -104,6 +104,37 @@ anyone reaches from the internet unless it is port-forwarded, which must never
 happen. The attacker is therefore a compromised or hostile device on the LAN:
 an IoT gadget, a guest's laptop, a malware-infected personal machine.
 
+```mermaid
+flowchart TB
+    subgraph PERSONAL["Personal VLAN -- realistic attacker origin"]
+        PD["Phone / IoT / guest laptop /<br/>compromised personal machine"]
+    end
+    subgraph WORK["Work VLAN -- trusted"]
+        WC["Work computer"]
+    end
+    subgraph MGMT["Switch management plane"]
+        WEBUI["Web UI, plain HTTP<br/>client-side MD5 login only"]
+        NSDPSRV["NSDP, UDP 63321-63324<br/>removed on firmware 1.6.0.15+"]
+        VLANTBL["VLAN table / PVIDs / port mirror config"]
+    end
+
+    PD -. "if management reachable from personal VLAN:<br/>sniff/replay login, brute-force MD5,<br/>unpatched or undiscovered pre-auth bug" .-> WEBUI
+    PD -. "if NSDP still live on this firmware" .-> NSDPSRV
+    WEBUI --> VLANTBL
+    NSDPSRV --> VLANTBL
+    VLANTBL -. "a successful takeover can:<br/>add personal port to work VLAN,<br/>change PVIDs, enable port mirroring,<br/>factory-reset" .-> WC
+
+    classDef untrusted fill:#f8d7da,stroke:#dc3545,color:#721c24;
+    classDef trusted fill:#d4edda,stroke:#28a745,color:#155724;
+    class PERSONAL untrusted
+    class WORK trusted
+```
+
+The whole point of section 4's hardening list is to cut the two dashed
+paths into `MGMT` — keep the management plane off any VLAN a personal
+device can reach, and the dashed path out of `VLANTBL` into the work VLAN
+never gets a chance to fire.
+
 ## 3. Threat model for this deployment
 
 **Goal:** work computer isolated from personal devices.

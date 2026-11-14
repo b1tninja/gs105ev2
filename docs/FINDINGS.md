@@ -10,6 +10,27 @@ library, and a VLAN plan are done. The physical switch is **not yet connected**
 (no NSDP reply on the LAN as of 2026-11-13), so all live-device behavior and
 every config *write* remain unverified against hardware.
 
+```mermaid
+flowchart TD
+    DEV["1. Device & silicon<br/>RTL8367N + on-die 8051 -- CONFIRMED"]
+    FW["2. Firmware<br/>container + bank layout -- CONFIRMED<br/>CGI table recovered, dispatcher -- OPEN"]
+    PROTO["3. Protocol & library<br/>NSDP reimplemented, unit-tested<br/>reads safe, writes gated+unverified"]
+    SEC["4. Security posture<br/>known CVEs patched by 1.6.0.25<br/>mgmt-plane design weak by nature"]
+    VLAN["5. VLAN isolation plan<br/>drafted -- blocked on infra answers"]
+
+    DEV --> FW
+    FW --> PROTO
+    PROTO --> SEC
+    PROTO --> VLAN
+    SEC --> VLAN
+    VLAN -. "needs a live switch to apply/verify" .-> HW["Physical teardown / flash dump<br/>NOT STARTED -- device not in hand"]
+```
+
+Each box is one section below; the two red flags in the status table at the
+bottom (httpd/CGI trace, physical teardown) are the only genuinely open
+work — everything else is either done or blocked on an answer from outside
+this project (the infra session, or having the unit in hand).
+
 ## 1. Device & silicon — [`GS105Ev2.md`](GS105Ev2.md), [`HARDWARE.md`](HARDWARE.md)
 
 - **NETGEAR GS105Ev2**, 5-port gigabit "Smart Managed Plus"/ProSAFE Plus

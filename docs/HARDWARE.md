@@ -13,6 +13,35 @@ The chipset-confirmation story (the `RTL8367N` string in the firmware, the
 Ghidra disassembly that identified the 8051 core is in
 [`GHIDRA-NOTES.md`](GHIDRA-NOTES.md).
 
+## Chip block diagram (inferred layout)
+
+Everything inside the dashed box is one die; everything outside it is a
+separate part on the board. Arrows show which boot source feeds the 8051's
+instruction memory, gated by the strap table further down.
+
+```mermaid
+flowchart TB
+    subgraph SOC["RTL8367N-VB (QFN-88) -- single die"]
+        MCU["Embedded 8051<br/>256B IRAM, 16KB code, 48KB data<br/>code-banked, 12KB NIC buffer"]
+        FAB["Switch fabric + 2K-entry MAC table<br/>802.1Q/802.1X, IGMP/MLD snooping"]
+        NIC["NIC (8051's own MAC)"]
+        PHY["5x 10/100/1000 PHYs, integrated"]
+        MCU <--> FAB
+        MCU --- NIC
+        NIC --- FAB
+        FAB --- PHY
+    end
+    FLASH["External SPI NOR flash<br/>1-2 MB, e.g. Winbond 25Q16 (unconfirmed)<br/>holds the 683 KB firmware image"]
+    EEPROM["Optional I2C-like EEPROM<br/>24Cxx, up to 256 Kbit<br/>SMI bus, shared SCK/SDA pins"]
+    RJ45["5x RJ45 jacks + integrated magnetics"]
+    STRAPS["Boot straps, sampled at reset<br/>DISAUTOLOAD / DIS_8051 / EN_SPIF"]
+
+    FLASH -- "SPIF_CLK/D0/D1/CS, EN_SPIF=1" --> MCU
+    EEPROM -- "SMI SCK/SDA, EN_SPIF=0" --> MCU
+    STRAPS -. "picks one arrow above" .-> MCU
+    PHY --- RJ45
+```
+
 ## Primary source and its limits
 
 Most of the chip detail below comes from one document: Realtek's
@@ -132,6 +161,19 @@ datasheet text for `DISAUTOLOAD` independently says that with `DIS_8051 = 0`
 and `DISAUTOLOAD = 0` the EEPROM/flash data is loaded into 8051 instruction
 memory.) All three pins have internal pull-ups and must be left floating or
 set with 4.7 k resistors, so their board state is directly readable.
+
+Same table, as the decision it makes at reset:
+
+```mermaid
+flowchart LR
+    RESET["Power-on / reset"] --> D{"DISAUTOLOAD?"}
+    D -- "1" --> NONE["Nothing loaded"]
+    D -- "0" --> E{"DIS_8051?"}
+    E -- "1" --> REGONLY["EEPROM -> switch registers only<br/>(8051 held off)"]
+    E -- "0" --> F{"EN_SPIF?"}
+    F -- "0" --> EEBOOT["EEPROM -> 8051 instruction memory"]
+    F -- "1" --> SPIBOOT["SPI flash -> 8051 instruction memory<br/>(this board, inferred -- see below)"]
+```
 
 ## Where the 683 KB firmware lives
 

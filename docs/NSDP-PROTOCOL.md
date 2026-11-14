@@ -38,6 +38,31 @@ All offsets in hex, from the start of the UDP payload:
 
 Body TLV record: 2-byte type, 2-byte length, then `length` bytes of value.
 
+```mermaid
+flowchart LR
+    V["0x00 version (1)"] --> OP["0x01 opcode (1)"]
+    OP --> ST["0x02 result/status (2)"]
+    ST --> R1["0x04 reserved (4)"]
+    R1 --> HM["0x08 host MAC (6)"]
+    HM --> DM["0x0E device MAC (6)<br/>all-zero = any/broadcast"]
+    DM --> R2["0x14 reserved (2)"]
+    R2 --> SEQ["0x16 sequence (2)"]
+    SEQ --> SIG["0x18 signature (4)<br/>ASCII 'NSDP'"]
+    SIG --> R3["0x1C reserved (4)"]
+    R3 --> BODY["0x20.. body: TLV* <br/>type(2) + length(2) + value"]
+    BODY --> END["end marker (4)<br/>0xFFFF0000"]
+```
+
+```mermaid
+sequenceDiagram
+    participant C as Client (this project's tool)
+    participant S as Switch (NSDP-capable firmware)
+    C->>S: UDP broadcast 255.255.255.255:63322/63324<br/>opcode 0x01 (read request)<br/>device MAC = 00:00:00:00:00:00<br/>empty TLVs: model, name, MAC, IP, DHCP, firmware
+    Note over S: Only firmware before 1.6.0.15<br/>answers at all (see "Current-firmware caveat")
+    S->>C: UDP reply from port 63322/63324<br/>opcode 0x02 (read response)<br/>same TLVs, now filled with values
+    Note over C,S: Stateless, single packet each way.<br/>Write requests (opcode 0x03) follow the same<br/>shape but carry the admin password TLV --<br/>historically weak, see WEBUI-AUTH.md / SECURITY-ANALYSIS.md
+```
+
 ## TLV types (incomplete)
 
 | Type | Meaning |

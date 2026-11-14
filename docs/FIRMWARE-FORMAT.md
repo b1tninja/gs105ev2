@@ -69,6 +69,17 @@ image was obtainable, see below).
 This is a vendor-custom container, not a standard one: no U-Boot `uImage`
 header, no TRX `HDR0`, no SquashFS magic at offset 0 in any sample.
 
+```mermaid
+flowchart LR
+    M["0x00 magic (4)<br/>0x87654321 LE<br/>fixed, all 8 versions"]
+    L["0x04 payload len (4)<br/>BE, = filesize - 20<br/>fixed formula, all 8 versions"]
+    U1["0x08 unknown (4)<br/>low16 0x0402-0x05c5"]
+    U2["0x0C unknown (4)<br/>top byte 0x03 or 0x04"]
+    K["0x10 marker (4)<br/>0x332255ff BE<br/>fixed, all 8 versions"]
+    P["0x14.. payload<br/>8051 boot image, see below"]
+    M --> L --> U1 --> U2 --> K --> P
+```
+
 ## Payload prefix — likely CPU boot stub, and a chip-core hypothesis
 
 The first **13 bytes immediately after the 20-byte header** (`02 10 16 02
@@ -104,6 +115,35 @@ references past the window — see [`GHIDRA-NOTES.md`](GHIDRA-NOTES.md)
 Round 3. A correct re-import needs overlay blocks per flash bank plus the
 bank-select SFR identified; the PNGs/gzip web assets past `0x10000` are
 still a data/resource region either way.
+
+```mermaid
+flowchart TB
+    subgraph FILE["683 KB file, flash-offset view"]
+        direction LR
+        H2["0x0000-0x0013<br/>20-byte container header"]
+        C2["0x0014-0x801F ish<br/>common region (32 KiB)"]
+        B0["bank 0<br/>0x8020-0xFFFF ish"]
+        B1["bank 1"]
+        B2["bank 2<br/>httpd/login.cgi strings<br/>+ CGI/page table (Round 7)"]
+        BN["... bank N<br/>(~20 banks total, most unmapped)"]
+        ASSET["resource region, ~0x57000+<br/>PNGs + 11 gzip web assets"]
+        H2 --> C2 --> B0 --> B1 --> B2 --> BN --> ASSET
+    end
+    subgraph CPU["8051 logical address space (one bank live at a time)"]
+        direction LR
+        COMMON["0x0000-0x7FFF<br/>common, always mapped"]
+        WINDOW["0x8000-0xFFFF<br/>banked window"]
+    end
+    C2 -. "always mapped" .-> COMMON
+    B0 -. "bank-select picks one" .-> WINDOW
+    B1 -. "bank-select picks one" .-> WINDOW
+    B2 -. "bank-select picks one<br/>(the image analyzed in Ghidra)" .-> WINDOW
+    BN -. "bank-select picks one" .-> WINDOW
+```
+
+The bank-select mechanism itself — the SFR/port write that decides which
+bank lands in the `0x8000-0xFFFF` window — is still unresolved; see
+[`GHIDRA-NOTES.md`](GHIDRA-NOTES.md) Rounds 4-9.
 
 ## Software stack (from embedded strings)
 

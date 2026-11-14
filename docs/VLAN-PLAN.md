@@ -38,6 +38,28 @@ With 5 ports: **1 trunk + 4 access**.
 | 4 | Personal | untagged 20 | 20 |
 | 5 | Personal | untagged 20 | 20 |
 
+```mermaid
+flowchart LR
+    ISP["ISP gateway<br/>192.0.2.254<br/>NAT only, no VLAN/firewall capability"]
+    ROUTER["router<br/>192.0.2.1, Arch Linux<br/>brLAN.10 / brLAN.20 sub-interfaces<br/>nftables: allow each VLAN -> internet, drop 10<->20"]
+    SW["GS105Ev2<br/>creates/tags the VLANs only -- no routing/firewalling"]
+    WORK["Work computer<br/>VLAN 10, untagged"]
+    P1["Personal device"]
+    P2["Personal device"]
+    P3["Personal device"]
+
+    ISP --- ROUTER
+    ROUTER == "port 1: trunk, tagged 10 + 20" ==> SW
+    SW -- "port 2: untagged VLAN 10" --> WORK
+    SW -- "port 3: untagged VLAN 20" --> P1
+    SW -- "port 4: untagged VLAN 20" --> P2
+    SW -- "port 5: untagged VLAN 20" --> P3
+```
+
+The switch's own management IP lives on VLAN 10 (or a dedicated admin
+VLAN) — never on a personal port, per
+[`SECURITY-ANALYSIS.md`](SECURITY-ANALYSIS.md).
+
 - **VLAN 10 = work**, **VLAN 20 = personal.**
 - The **trunk (port 1)** carries both VLANs tagged up to `router`, which runs
   `brLAN.10` / `brLAN.20` sub-interfaces, per-VLAN DHCP + DNS, and an nftables

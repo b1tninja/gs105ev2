@@ -6,6 +6,20 @@ switches. Protocol layout and TLV codes come from
 `ProSafeLinux`/`ngadmin` projects, cited in [`research.md`](research.md), then
 reimplemented here); legal framing is in [`../LEGAL.md`](../LEGAL.md).
 
+```mermaid
+flowchart LR
+    CLI["gs105ev2 CLI<br/>(read-only subcommands)"]
+    SCRIPT["your script<br/>import gs105ev2"]
+    CLIENT["NsdpClient<br/>discover/get_*, set_* (gated)"]
+    WIRE["gs105ev2.nsdp<br/>Packet/Tlv encode-decode<br/>(unit-tested, no hardware needed)"]
+    UDP["UDP socket<br/>broadcast or unicast, ports 63321-63324"]
+    SW["GS105Ev2 switch<br/>(NSDP-capable firmware only)"]
+
+    CLI --> CLIENT
+    SCRIPT --> CLIENT
+    CLIENT --> WIRE --> UDP <--> SW
+```
+
 ## Status / what's verified
 
 - **Read paths** — implemented, and the wire-format encode/decode they rely

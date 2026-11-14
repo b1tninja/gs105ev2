@@ -42,6 +42,23 @@ shorter one runs out) rather than concatenating them. The interleaved
 string is then MD5-hashed, and only the hash (`submitPwd`) is sent to the
 switch — the plaintext password field itself is not submitted.
 
+```mermaid
+sequenceDiagram
+    participant U as User's browser
+    participant S as Switch web UI (plain HTTP)
+    S->>U: GET /login.cgi<br/>page includes hidden field id="rand" = server-generated value
+    Note over U: User types password.<br/>JS: merge(password, rand) interleaves char-by-char,<br/>then submitPwd = md5(merged) -- all client-side
+    U->>S: POST submitPwd = md5(interleave(password, rand))<br/>(plaintext password never sent)
+    Note over S: Whether rand is fresh/unpredictable<br/>per page load is unverified (see "Open question")
+    S->>U: Session established, or rejected
+```
+
+This is a client-side obfuscation step, not a protocol: there is no
+server-held secret beyond `rand` itself, and anyone who observes one
+`(rand, md5(interleave(password, rand)))` pair on the wire (trivial over
+plain HTTP, see below) can attack that pair offline exactly as if the raw
+MD5 of the password had been sent.
+
 ## Why this matters
 
 - This is a **client-side-only** obfuscation scheme, not a cryptographic
