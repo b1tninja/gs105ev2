@@ -606,6 +606,67 @@ where its table lives, or the datasheet's bank-control register address
 code-memory-size split — the same channel could resolve this directly
 instead of continuing to search for it blind).
 
+## Round 9 — chasing the datasheet register address: not published anywhere found
+
+Round 8 ended by suggesting the datasheet's bank-control register address as
+a shortcut past blind byte-searching. This round went looking for it
+directly, re-reading the primary source and searching for alternates.
+
+**Re-read the primary source (`RTL8367N-VB-CG`, Rev. Pre-0.9, the chipdip.ru
+mirror already cited in `HARDWARE.md`) specifically for register-level
+detail.** Downloaded it fresh and ran `pdftotext -layout` over the whole 61
+pages (scratch dir, not committed — confidential per `LEGAL.md`). Section
+9.17 "Embedded 8051" is five bullet points:
+
+> 256 Bytes fast internal RAM · On-chip 48K data memory · On-chip 16K code
+> memory · Supports code-banking · 12 KBytes NIC buffer · EEPROM read/write
+> ability
+
+That is the entirety of what the datasheet says about the 8051 — the same
+sentence `HARDWARE.md` already quotes. Grepped the full extracted text for
+`register map`, `appendix`, `SFR`, `special function register`, `PCON`,
+`code bank`, `CBANK`, `BANKSEL`, `ROM BANK` (case-insensitive): **zero
+matches**. This draft datasheet has no register-map chapter at all — it is
+pins/electricals/features only, not a programming reference. The "relayed
+once already" note in Round 8 was a dead end: the datasheet never had the
+address to relay in the first place.
+
+**Checked whether a less-redacted sibling datasheet says more.** Pulled three
+more Realtek switch-SoC datasheet mirrors turned up by search (an
+`RTL8370N-VB` Rev. 0.3 draft and two unidentified `RTL83xx`-family PDFs from
+distributor mirrors). All three repeat the *identical* five-bullet list
+verbatim (same wording, same bullet order) — this is Realtek's standard
+marketing feature-list boilerplate reused across the whole embedded-8051
+switch-SoC line, not chip-specific detail that varies by part. No sibling
+datasheet goes further.
+
+**Checked for a public register-level source instead of a datasheet.** The
+open-source Linux/OpenWrt switch drivers (`rtl8365mb`, `rtl8367b`/`rtl8367c`
+vendor tree, `rtl8366rb`) configure the switch *fabric* (VLANs, QoS, port
+state) from an external host over SMI/MDIO — they never touch the embedded
+8051's own code memory or SFR space, because that's internal state the 8051
+firmware manages for itself; an external host has no reason to go near it
+and these drivers don't. A "Realtek Unmanaged Switch Programming Guide" PDF
+turned up by search is the same kind of document (external SMI
+configuration), and the one page of it fetchable confirms that scope — no
+8051 content. No GitHub mirror of Realtek's internal 8051 SDK/firmware
+source (which is where a `#define` for this register would actually live)
+turned up.
+
+**Conclusion: the register address is not resolvable from public sources.**
+This closes the "ask the datasheet" shortcut Round 8 proposed — it was based
+on mis-remembering the datasheet as having more detail than it does. The
+open question in `HARDWARE.md` ("How the 8051's code banking maps the 64 KiB
+code region ... into 16 KB of on-chip code memory" — not documented in the
+sources read) already had this right; this round just confirms there's no
+undiscovered register-map section to go find. The two live hypotheses from
+Round 8 (a computed jump via `JMP @A+DPTR`, or a hardware-latched mechanism
+needing no explicit SFR write) are what's left; resolving either now needs
+either a `JMP @A+DPTR` site found by other means (full linear disassembly of
+a bank Ghidra hasn't seen the dispatch code of yet, rather than more
+byte-pattern guessing) or access to Realtek's non-public 8051 firmware SDK,
+not further open-source/datasheet search.
+
 ## Reproducing this
 
 ```powershell
